@@ -771,7 +771,7 @@ def generate_html(cb_rates, events, alerts, implied_moves):
           <td class="pair-name">{pair}</td>
           <td>{cbs_html}</td>
           <td>{bots_html}</td>
-          <td class="risk-icon">{warn_icon}</td>
+          <td class="risk-icon" style="text-align:center">{warn_icon}</td>
         </tr>"""
 
     # ── Inline Sparkline SVG ──
@@ -1163,7 +1163,7 @@ tr:hover td {{ background: #ffffff04; }}
   color: var(--text);
   background: #ffffff06;
 }}
-.risk-icon {{ font-size: 16px; text-align: center; vertical-align: middle; line-height: 1; }}
+.risk-icon {{ font-size: 16px; text-align: center; vertical-align: middle; line-height: 1; width: 70px; }}
 .risk-ok    .risk-icon {{ color: var(--green); }}
 .risk-alert .risk-icon {{ color: var(--amber); }}
 
@@ -1313,7 +1313,7 @@ tr:hover td {{ background: #ffffff04; }}
             <th>Pair</th>
             <th>Central Banks</th>
             <th>Active Bots</th>
-            <th>Alert</th>
+            <th style="text-align:center;width:70px">Alert</th>
           </tr>
         </thead>
         <tbody>
