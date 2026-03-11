@@ -40,7 +40,7 @@ FRED_SERIES = {
     "BOE": {"id": "IUDSOIA",         "name": "BOE SONIA Rate",   "currency": "GBP", "flag": "🇬🇧"},
     "BOJ": {"id": "IRSTCB01JPM156N", "name": "BOJ Policy Rate",  "currency": "JPY", "flag": "🇯🇵"},
     "BOC": {"id": "IRSTCB01CAM156N", "name": "BOC Policy Rate",  "currency": "CAD", "flag": "🇨🇦"},
-    "RBA": {"id": "RBAAOARD",        "name": "RBA Cash Rate",    "currency": "AUD", "flag": "🇦🇺"},
+    "RBA": {"id": "IRSTCB01AUM156N", "name": "RBA Cash Rate",    "currency": "AUD", "flag": "🇦🇺"},
 }
 
 FRED_API_KEY = os.environ.get("FRED_API_KEY", "")
@@ -118,16 +118,16 @@ def _parse_ff_xml(content, cb_map, seen):
 
 
 def _make_request(url, extra_headers=None, timeout=15):
-    """Make a URL request with realistic browser headers."""
+    """Make a URL request with realistic browser headers. No gzip to avoid decode issues."""
     headers = {
         "User-Agent": (
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
             "AppleWebKit/537.36 (KHTML, like Gecko) "
             "Chrome/122.0.0.0 Safari/537.36"
         ),
-        "Accept": "application/xml,text/xml,application/json,*/*;q=0.9",
+        "Accept": "application/xml,text/xml,*/*;q=0.9",
         "Accept-Language": "en-US,en;q=0.9",
-        "Accept-Encoding": "gzip, deflate",
+        "Accept-Encoding": "identity",   # explicitly request no compression
         "Connection": "keep-alive",
         "Cache-Control": "no-cache",
         "Pragma": "no-cache",
@@ -153,7 +153,6 @@ def fetch_forex_factory_calendar():
         ("thisweek", "https://nfs.faireconomy.media/ff_calendar_thisweek.xml"),
         ("thisweek", "https://cdn-nfs.faireconomy.media/ff_calendar_thisweek.xml"),
         ("nextweek", "https://nfs.faireconomy.media/ff_calendar_nextweek.xml"),
-        ("nextweek", "https://cdn-nfs.faireconomy.media/ff_calendar_nextweek.xml"),
     ]
     fetched_weeks = set()
 
@@ -164,17 +163,20 @@ def fetch_forex_factory_calendar():
             print(f"    FF XML: {url}")
             with _make_request(url) as resp:
                 raw = resp.read()
-            # Handle gzip
+            print(f"    → {len(raw)} bytes received, first 60: {raw[:60]}")
+            # Handle gzip just in case server ignores Accept-Encoding: identity
             if raw[:2] == b'\x1f\x8b':
                 import gzip
                 raw = gzip.decompress(raw)
+                print(f"    → gzip decompressed: {len(raw)} bytes")
             parsed = _parse_ff_xml(raw, cb_map, seen)
             if parsed:
                 events.extend(parsed)
                 fetched_weeks.add(week_key)
                 print(f"    → ✓ {len(parsed)} events ({week_key})")
             else:
-                print(f"    → 0 events parsed — trying next URL")
+                # Print first 500 chars of XML to help debug structure
+                print(f"    → 0 events parsed. XML preview: {raw[:500]}")
         except urllib.error.HTTPError as e:
             print(f"    → HTTP {e.code} — trying next")
         except urllib.error.URLError as e:
@@ -183,7 +185,6 @@ def fetch_forex_factory_calendar():
             print(f"    → {type(e).__name__}: {e} — trying next")
 
     # ── Source 2: FRED release calendar (fallback if FF failed) ───────────────
-    # FRED has a releases/dates endpoint listing upcoming data releases
     if not events and FRED_API_KEY:
         print("    FF failed — trying FRED release calendar as fallback...")
         try:
@@ -196,9 +197,13 @@ def fetch_forex_factory_calendar():
                 f"&include_release_dates_with_no_data=false&limit=100"
             )
             with _make_request(url) as resp:
-                data = json.loads(resp.read())
+                raw = resp.read()
+            # Decompress if gzip
+            if raw[:2] == b'\x1f\x8b':
+                import gzip
+                raw = gzip.decompress(raw)
+            data = json.loads(raw)
 
-            # Map FRED release names to central banks
             release_cb_map = {
                 "federal open market committee": ("FED",  "US", "FOMC Rate Decision"),
                 "fomc":                          ("FED",  "US", "FOMC Rate Decision"),
@@ -232,7 +237,9 @@ def fetch_forex_factory_calendar():
                         break
             print(f"    → FRED fallback: {len(events)} events")
         except Exception as e:
+            import traceback
             print(f"    → FRED fallback failed: {e}")
+            traceback.print_exc()
 
     if not events:
         print("  ⚠ All calendar sources failed")
@@ -254,20 +261,12 @@ def fetch_implied_rate_changes(cb_rates):
     if not FRED_API_KEY:
         return {}
 
-    # OIS / near-term forward rate proxies available on FRED
-    IMPLIED_SERIES = {
-        "FED": "SOFR",            # Secured Overnight Financing Rate — tracks expected Fed path
-        "BOE": "IUDSOIA",         # Same as current rate — use 3m GBP OIS when available
-        "ECB": "ECBDFR",          # ECB deposit facility — use ESTR as proxy
-    }
-
-    # Better: use 3-month treasury / overnight spread as proxy for hike pricing
+    # Use 3-month market rates vs policy rate as forward proxy
+    # All series verified to exist on FRED
     FORWARD_PROXIES = {
-        "FED": {"now": "FEDFUNDS", "fwd": "DTB3"},   # Fed Funds vs 3M T-Bill
-        "ECB": {"now": "ECBDFR",   "fwd": "IR3TIB01EZM156N"},  # ECB vs 3M Euribor
-        "BOE": {"now": "IUDSOIA",  "fwd": "IR3TBB01GBM156N"},  # BOE SONIA vs 3M GBP
-        "BOC": {"now": "IRSTCB01CAM156N", "fwd": "IR3TBB01CAM156N"},
-        "RBA": {"now": "RBAAOARD", "fwd": "IR3TBB01AUM156N"},
+        "FED": {"now": "FEDFUNDS",        "fwd": "DTB3"},              # Fed Funds vs 3M T-Bill
+        "ECB": {"now": "ECBDFR",          "fwd": "IR3TIB01EZM156N"},   # ECB vs 3M Euribor
+        "BOJ": {"now": "IRSTCB01JPM156N", "fwd": "IR3TIB01JPM156N"},   # BOJ vs 3M Tibor
     }
 
     implied = {}
