@@ -135,17 +135,24 @@ body {
   align-items: center;
   gap: 8px;
   margin-bottom: 12px;
+  line-height: 1;
 }
-.cb-flag { font-size: 20px; }
+.cb-flag {
+  font-size: 18px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+}
 .cb-name {
   font-family: 'Barlow', sans-serif;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 800;
   color: #fff;
   flex: 1;
   letter-spacing: 0.04em;
+  line-height: 1;
 }
-.arrow { font-size: 13px; }
+.arrow { font-size: 12px; line-height: 1; display: flex; align-items: center; }
 .arrow.up   { color: var(--red); }
 .arrow.down { color: var(--green); }
 .arrow.flat { color: var(--blue); font-size: 9px; }
@@ -250,18 +257,20 @@ table {
 }
 th {
   text-align: left;
-  font-size: 10px;
-  letter-spacing: 0.1em;
+  font-size: 12px;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--dim);
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--border);
-  font-weight: 400;
+  color: #c0c0e0;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border2);
+  font-weight: 700;
+  background: #0e0e1a;
+  font-family: 'Barlow', sans-serif;
 }
 td {
-  padding: 9px 12px;
+  padding: 10px 14px;
   border-bottom: 1px solid var(--border);
-  font-size: 12px;
+  font-size: 13px;
   color: var(--text);
 }
 tr:last-child td { border-bottom: none; }
@@ -339,6 +348,80 @@ tr:hover td { background: #ffffff04; }
   .header, .main, .footer { padding-left: 16px; padding-right: 16px; }
   .cb-grid { grid-template-columns: repeat(2, 1fr); }
 }
+
+/* ── Pause Recommendations ── */
+.pause-rec {
+  display: inline-block;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  padding: 3px 10px;
+  border-radius: 3px;
+  margin-bottom: 8px;
+}
+.pause-critical { background: var(--red);   color: #fff; }
+.pause-high     { background: var(--amber); color: #000; }
+.pause-medium   { background: #1e3a5f;      color: var(--blue); border: 1px solid var(--blue); }
+
+/* ── Outlook Cards ── */
+.outlook-card {
+  opacity: 0.92;
+  position: relative;
+}
+.outlook-card::after {
+  content: '7–14 DAYS';
+  position: absolute;
+  top: 10px; right: 12px;
+  font-size: 9px;
+  font-family: 'IBM Plex Mono', monospace;
+  letter-spacing: 0.1em;
+  color: var(--dimmer);
+}
+.days-badge {
+  font-size: 11px;
+  color: var(--dim);
+  font-family: 'IBM Plex Mono', monospace;
+}
+.implied-badge {
+  font-size: 11px;
+  color: var(--blue);
+  background: #0a1a2e;
+  border: 1px solid #1e3a5f;
+  border-radius: 4px;
+  padding: 5px 10px;
+  margin-bottom: 8px;
+  font-family: 'IBM Plex Mono', monospace;
+}
+
+/* ── Implied Rates Table ── */
+.implied-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
+}
+.implied-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.imp-cb { font-family: 'Barlow', sans-serif; font-weight: 800; font-size: 15px; color: #fff; }
+.imp-prob-bar { height: 5px; background: var(--border2); border-radius: 3px; overflow: hidden; margin: 4px 0; }
+.imp-prob-fill { height: 100%; border-radius: 3px; transition: width 0.3s; }
+.imp-hike { background: linear-gradient(90deg, #ff3b3b, #ff6b6b); }
+.imp-cut  { background: linear-gradient(90deg, #22c55e, #4ade80); }
+.imp-hold { background: linear-gradient(90deg, #60a5fa, #93c5fd); }
+.imp-label { font-size: 12px; color: var(--dim); }
+.imp-pct   { font-family: 'IBM Plex Mono', monospace; font-size: 13px; font-weight: 700; }
+.imp-pct.hike { color: var(--red); }
+.imp-pct.cut  { color: var(--green); }
+.imp-pct.hold { color: var(--blue); }
+.imp-rates { font-size: 11px; color: var(--dimmer); font-family: 'IBM Plex Mono', monospace; }
+.no-implied { color: var(--dimmer); font-size: 12px; padding: 12px 0; font-style: italic; }
 </style>
 </head>
 <body>
@@ -350,7 +433,7 @@ tr:hover td { background: #ffffff04; }
   </div>
   <div class="header-right">
     <div class="updated-label"><span class="live-dot"></span>Auto-refreshes hourly</div>
-    <div class="updated-time">Wednesday, March 11 2026 — 01:25 UTC</div>
+    <div class="updated-time">Wednesday, March 11 2026 — 01:34 UTC</div>
   </div>
 </header>
 
@@ -436,7 +519,33 @@ tr:hover td { background: #ffffff04; }
     </div>
   </section>
 
-  <!-- ── Section 2: Alerts ── -->
+  <!-- ── Section 2: Market-Implied Next Move ── -->
+  <section>
+    <div class="section-title">📊 Market-Implied Rate Move Probability</div>
+    <div class="implied-grid">
+      
+            <div class="implied-card">
+              <div class="imp-cb">FED</div>
+              <div class="imp-label">Market-implied next move</div>
+              <span class="imp-pct hold">◆ HOLD &nbsp;0%</span>
+              <div class="imp-prob-bar">
+                <div class="imp-prob-fill imp-hold" style="width:0%"></div>
+              </div>
+              <div class="imp-rates">Current: 3.64% → Fwd: 3.61% (-3.0bp)</div>
+            </div>
+            <div class="implied-card">
+              <div class="imp-cb">ECB</div>
+              <div class="imp-label">Market-implied next move</div>
+              <span class="imp-pct hold">◆ HOLD &nbsp;0%</span>
+              <div class="imp-prob-bar">
+                <div class="imp-prob-fill imp-hold" style="width:0%"></div>
+              </div>
+              <div class="imp-rates">Current: 2.0% → Fwd: 2.028% (+2.8bp)</div>
+            </div>
+    </div>
+  </section>
+
+  <!-- ── Section 3: Confirmed Alerts 0-7 days ── -->
   <section>
     <div class="section-title">⚠ Portfolio Volatility Alerts — Next 7 Days</div>
     <div class="alerts-grid">
@@ -444,7 +553,15 @@ tr:hover td { background: #ffffff04; }
     </div>
   </section>
 
-  <!-- ── Section 3: Portfolio Pair Map ── -->
+  <!-- ── Section 4: Outlook 7-14 days ── -->
+  <section>
+    <div class="section-title">🔭 14-Day Outlook — Potential Risk Events</div>
+    <div class="alerts-grid">
+      <div class="no-alerts">✓ No notable scheduled events in the 7–14 day window for your pairs.</div>
+    </div>
+  </section>
+
+  <!-- ── Section 5: Portfolio Pair Map ── -->
   <section>
     <div class="section-title">Portfolio Pair Exposure Map</div>
     <div class="portfolio-table">
@@ -500,9 +617,9 @@ tr:hover td { background: #ffffff04; }
     </div>
   </section>
 
-  <!-- ── Section 4: Event Calendar ── -->
+  <!-- ── Section 6: Event Calendar ── -->
   <section>
-    <div class="section-title">High-Impact Economic Calendar — This Week</div>
+    <div class="section-title">High-Impact Economic Calendar — Next 14 Days</div>
     <div class="table-wrap">
       <table>
         <thead>
@@ -528,7 +645,7 @@ tr:hover td { background: #ffffff04; }
 
 <footer class="footer">
   <span>Data: <a href="https://fred.stlouisfed.org" target="_blank">FRED</a> · <a href="https://www.forexfactory.com" target="_blank">Forex Factory</a></span>
-  <span>Generated: Wednesday, March 11 2026 — 01:25 UTC</span>
+  <span>Generated: Wednesday, March 11 2026 — 01:34 UTC</span>
   <span>Portfolio: 4 bots · 6 pairs</span>
 </footer>
 
