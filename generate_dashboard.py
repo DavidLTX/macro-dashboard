@@ -131,31 +131,57 @@ def fetch_rateprobability(cb_key):
         print(f"  rateprobability.com ({cb_key}): could not parse current rate")
         return None
 
-    # Parse meeting table rows
-    # Pattern: | Month DD, YYYY | X.XX% | (Y.Y%) or Y.Y% | ... | delta |
-    rows = re.findall(
-        r'\|\s*([A-Za-z]+ \d+,\s*\d{4})\s*\|' +
-        r'\s*([\d.]+)%\s*\|' +
-        r'\s*\(?([\d.]+)%\)?\s*\|' +
-        r'[^|]*\|' +
-        r'\s*\(?([-\d.]+)\)?',
-        html
-    )
-
+    # Parse meeting table rows line by line — handles both positive and (negative) formats
     now = datetime.now(timezone.utc)
-    for row in rows:
-        date_str, implied_str, prob_str, delta_str = row
+    for line in html.splitlines():
+        line = line.strip()
+        if not line.startswith('|'):
+            continue
+        cols = [c.strip() for c in line.split('|')]
+        cols = [c for c in cols if c]  # remove empty edge cells
+        if len(cols) < 5:
+            continue
+
+        date_col    = cols[0]
+        implied_col = cols[1]
+        prob_col    = cols[2]
+        delta_col   = cols[4] if len(cols) > 4 else cols[3]
+
+        # Date column must look like "Jan 28, 2026"
+        date_match = re.match(r'([A-Za-z]+ \d+,\s*\d{4})', date_col)
+        if not date_match:
+            continue
         try:
-            dt = datetime.strptime(date_str.strip(), "%b %d, %Y").replace(tzinfo=timezone.utc)
+            dt = datetime.strptime(date_match.group(1).strip(), "%b %d, %Y").replace(tzinfo=timezone.utc)
         except Exception:
             continue
         if dt < now - timedelta(days=1):
             continue
 
-        delta_bp = float(delta_str)
-        if abs(delta_bp) < 2:
+        # Implied rate: "2.26%"
+        implied_match = re.search(r'([\d.]+)%', implied_col)
+        if not implied_match:
+            continue
+
+        # Probability: "5.2%" or "(9.2%)" — parens indicate cut direction
+        prob_match = re.search(r'([\d.]+)%', prob_col)
+        if not prob_match:
+            continue
+        is_cut_prob = '(' in prob_col  # parenthesised = cut
+
+        # Delta: "-1.0" or "(1.0)" or "6.3"
+        delta_match = re.search(r'(-?[\d.]+)', delta_col.replace('(', '-').replace(')', ''))
+        if not delta_match:
+            continue
+
+        implied_rate = float(implied_match.group(1))
+        prob         = float(prob_match.group(1))
+        delta_bp     = float(delta_match.group(1))
+
+        # Direction: use delta sign as ground truth; parens on prob confirm cut
+        if abs(delta_bp) < 1.5:
             direction = "hold"
-        elif delta_bp > 0:
+        elif delta_bp > 0 and not is_cut_prob:
             direction = "hike"
         else:
             direction = "cut"
@@ -163,8 +189,8 @@ def fetch_rateprobability(cb_key):
         result["meetings"].append({
             "date": dt,
             "date_str": dt.strftime("%b %d, %Y"),
-            "implied_rate": float(implied_str),
-            "probability": float(prob_str),
+            "implied_rate": implied_rate,
+            "probability": prob,
             "direction": direction,
             "delta_bp": delta_bp,
         })
@@ -475,9 +501,26 @@ def fetch_implied_rate_changes(cb_rates):
 
     implied = {}
 
-    # Step 1: FRED spread method
-    fred_success = set()
-    for cb, series in FORWARD_PROXIES.items():
+    # Primary source: rateprobability.com — uses real OIS/futures pricing per meeting.
+    # FRED 3M spreads are kept as fallback but often show 0bp for BOJ/RBA (misleading).
+    rp_slugs = {"FED": "fed", "ECB": "ecb", "BOE": "boe",
+                "BOJ": "boj", "BOC": "boc", "RBA": "rba"}
+    print("  Fetching next-meeting probabilities from rateprobability.com...")
+    for cb, slug in rp_slugs.items():
+        rp = fetch_rateprobability(slug)
+        imp = _rp_to_implied(rp)
+        if imp:
+            implied[cb] = imp
+            if not cb_rates.get(cb):
+                cb_rates[cb] = _rp_to_cb_rate(rp)
+                print(f"  CB rate backfilled for {cb} from rateprobability.com: {imp['current_rate']}%")
+
+    # Fallback: FRED spread for any CB that RP couldn't load
+    rp_missing = [cb for cb in FORWARD_PROXIES if cb not in implied]
+    if rp_missing:
+        print(f"  RP missing for {rp_missing} — using FRED spread fallback...")
+    for cb in rp_missing:
+        series = FORWARD_PROXIES[cb]
         try:
             now_rate = cb_rates.get(cb)
             if not now_rate:
@@ -503,35 +546,13 @@ def fetch_implied_rate_changes(cb_rates):
                 direction   = "cut"
                 probability = min(int((abs(spread_bp) / 25) * 100), 95)
             implied[cb] = {
-                "direction":    direction,
-                "probability":  probability,
-                "spread_bp":    round(spread_bp, 1),
-                "forward_rate": round(forward, 3),
-                "current_rate": round(current, 3),
-                "fwd_label":    fwd_label,
+                "direction": direction, "probability": probability,
+                "spread_bp": round(spread_bp, 1), "forward_rate": round(forward, 3),
+                "current_rate": round(current, 3), "fwd_label": fwd_label,
             }
-            fred_success.add(cb)
-            print(f"  Implied {cb}: {direction} {probability}% (spread {spread_bp:+.1f}bp via {fwd_label})")
+            print(f"  Implied {cb} (FRED): {direction} {probability}% ({spread_bp:+.1f}bp via {fwd_label})")
         except Exception as e:
             print(f"  Implied rate error ({cb}): {e}")
-
-    # Step 2: rateprobability.com fallback for any CB still missing
-    rp_slugs = {"FED": "fed", "ECB": "ecb", "BOE": "boe",
-                "BOJ": "boj", "BOC": "boc", "RBA": "rba"}
-    missing = [cb for cb in FORWARD_PROXIES if cb not in fred_success]
-    if missing:
-        print(f"  FRED implied incomplete for {missing} — trying rateprobability.com...")
-    for cb in missing:
-        slug = rp_slugs.get(cb)
-        if not slug:
-            continue
-        rp = fetch_rateprobability(slug)
-        imp = _rp_to_implied(rp)
-        if imp:
-            implied[cb] = imp
-            if not cb_rates.get(cb):
-                cb_rates[cb] = _rp_to_cb_rate(rp)
-                print(f"  CB rate backfilled for {cb} from rateprobability.com: {imp['current_rate']}%")
 
     return implied
 
@@ -690,6 +711,7 @@ def generate_html(cb_rates, events, alerts, outlook, implied_moves):
           <div class="cb-sub">{info['name']}</div>
           <div class="cb-prev">Prev: {prev}</div>
           {sparkline}
+          <div class="cb-spark-label">6-month rate history</div>
           <div class="cb-asof">as of {as_of}</div>
         </div>"""
 
@@ -830,6 +852,9 @@ def generate_html(cb_rates, events, alerts, outlook, implied_moves):
             fill_cls  = {"hike": "imp-hike", "cut": "imp-cut", "hold": "imp-hold"}.get(dir_cls, "imp-hold")
             pct_cls   = {"hike": "hike", "cut": "cut", "hold": "hold"}.get(dir_cls, "hold")
             dir_label = {"hike": "▲ HIKE", "cut": "▼ CUT", "hold": "◆ HOLD"}.get(dir_cls, dir_cls.upper())
+            next_mtg  = imp.get("next_meeting", "")
+            next_mtg_str = f"📅 {next_mtg} &nbsp;·&nbsp; " if next_mtg else ""
+            source_str   = imp.get("fwd_label", "")
             implied_html += f"""
             <div class="implied-card">
               <div class="imp-cb">{cb}</div>
@@ -839,6 +864,7 @@ def generate_html(cb_rates, events, alerts, outlook, implied_moves):
                 <div class="imp-prob-fill {fill_cls}" style="width:{pct}%"></div>
               </div>
               <div class="imp-rates">Current: {imp['current_rate']}% → Fwd: {imp['forward_rate']}% ({imp['spread_bp']:+.1f}bp)</div>
+              <div class="imp-source">{next_mtg_str}{source_str}</div>
             </div>"""
 
     # ── Full HTML ──────────────────────────────────────────────────────────────
@@ -959,9 +985,9 @@ body {{
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: 10px;
-  padding: 20px 20px 16px;
+  padding: 20px 20px 12px;
   position: relative;
-  overflow: hidden;
+  overflow: visible;
   transition: border-color 0.2s, transform 0.15s;
 }}
 .cb-card::before {{
@@ -1018,12 +1044,15 @@ body {{
 }}
 .cb-sub  {{ font-size: 12px; color: #b0b0d8; margin-top: 6px; font-weight: 600; }}
 .cb-prev {{ font-size: 12px; color: #a0a0cc; margin-top: 4px; font-family: 'IBM Plex Mono', monospace; }}
-.cb-asof {{ font-size: 11px; color: #8888bb; margin-top: 8px; font-family: 'IBM Plex Mono', monospace; }}
+.cb-asof {{ font-size: 11px; color: #8888bb; margin-top: 4px; font-family: 'IBM Plex Mono', monospace; }}
+.cb-spark-label {{ font-size: 10px; color: #5555888; margin-top: 2px; font-family: 'IBM Plex Mono', monospace; letter-spacing: 0.05em; }}
 .spark {{
   display: block;
   width: 100%;
-  height: 36px;
-  margin-top: 12px;
+  height: 40px;
+  margin-top: 10px;
+  margin-bottom: 2px;
+  overflow: visible;
 }}
 .spark-up   {{ color: #ff6060; }}
 .spark-down {{ color: #4ade80; }}
@@ -1262,6 +1291,7 @@ tr:hover td {{ background: #ffffff04; }}
   gap: 6px;
 }}
 .imp-cb {{ font-family: 'Barlow', sans-serif; font-weight: 800; font-size: 15px; color: #fff; }}
+.imp-source {{ font-size: 10px; color: #6666aa; margin-top: 5px; font-family: 'IBM Plex Mono', monospace; letter-spacing: 0.03em; }}
 .imp-prob-bar {{ height: 5px; background: var(--border2); border-radius: 3px; overflow: hidden; margin: 4px 0; }}
 .imp-prob-fill {{ height: 100%; border-radius: 3px; transition: width 0.3s; }}
 .imp-hike {{ background: linear-gradient(90deg, #ff3b3b, #ff6b6b); }}
