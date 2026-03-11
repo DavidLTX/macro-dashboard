@@ -1247,31 +1247,33 @@ tr:hover td {{ background: #ffffff04; }}
 /* ── Implied Rates Table ── */
 .implied-grid {{
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 14px;
 }}
 .implied-card {{
   background: var(--card);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 14px 16px;
+  border-radius: 10px;
+  padding: 22px 22px 18px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
+  transition: border-color 0.2s, transform 0.15s;
 }}
-.imp-cb {{ font-family: 'Barlow', sans-serif; font-weight: 800; font-size: 15px; color: #fff; }}
-.imp-source {{ font-size: 12px; color: #c0c0e8; margin-top: 6px; font-family: 'IBM Plex Mono', monospace; letter-spacing: 0.03em; font-weight: 600; }}
-.imp-prob-bar {{ height: 5px; background: var(--border2); border-radius: 3px; overflow: hidden; margin: 4px 0; }}
-.imp-prob-fill {{ height: 100%; border-radius: 3px; transition: width 0.3s; }}
+.implied-card:hover {{ border-color: var(--border2); transform: translateY(-2px); }}
+.imp-cb {{ font-family: 'Barlow', sans-serif; font-weight: 800; font-size: 20px; color: #fff; letter-spacing: 0.04em; }}
+.imp-source {{ font-size: 12px; color: #c0c0e8; margin-top: 4px; font-family: 'IBM Plex Mono', monospace; letter-spacing: 0.03em; font-weight: 600; }}
+.imp-prob-bar {{ height: 7px; background: var(--border2); border-radius: 4px; overflow: hidden; margin: 6px 0 2px; }}
+.imp-prob-fill {{ height: 100%; border-radius: 4px; transition: width 0.3s; }}
 .imp-hike {{ background: linear-gradient(90deg, #ff3b3b, #ff6b6b); }}
 .imp-cut  {{ background: linear-gradient(90deg, #22c55e, #4ade80); }}
 .imp-hold {{ background: linear-gradient(90deg, #60a5fa, #93c5fd); }}
-.imp-label {{ font-size: 12px; color: #b0b0d8; font-weight: 500; }}
-.imp-pct   {{ font-family: 'IBM Plex Mono', monospace; font-size: 15px; font-weight: 700; }}
+.imp-label {{ font-size: 12px; color: #b0b0d8; font-weight: 500; margin-bottom: 2px; }}
+.imp-pct   {{ font-family: 'IBM Plex Mono', monospace; font-size: 26px; font-weight: 700; line-height: 1.1; }}
 .imp-pct.hike {{ color: var(--red); }}
 .imp-pct.cut  {{ color: var(--green); }}
 .imp-pct.hold {{ color: var(--blue); }}
-.imp-rates {{ font-size: 11px; color: #9898c8; font-family: 'IBM Plex Mono', monospace; }}
+.imp-rates {{ font-size: 12px; color: #9898c8; font-family: 'IBM Plex Mono', monospace; line-height: 1.5; }}
 .no-implied {{ color: var(--dimmer); font-size: 12px; padding: 12px 0; font-style: italic; }}
 </style>
 </head>
