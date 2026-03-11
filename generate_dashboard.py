@@ -35,12 +35,35 @@ PAIR_CB_MAP = {
 
 # FRED series for central bank policy rates
 FRED_SERIES = {
-    "FED": {"id": "FEDFUNDS",   "name": "Fed Funds Rate",    "currency": "USD", "flag": "🇺🇸"},
-    "ECB": {"id": "ECBDFR",     "name": "ECB Deposit Rate",  "currency": "EUR", "flag": "🇪🇺"},
-    "BOE": {"id": "IUDSOIA",    "name": "BOE SONIA Rate",    "currency": "GBP", "flag": "🇬🇧"},
-    "BOJ": {"id": "INTDSRJPM193N", "name": "BOJ Policy Rate",   "currency": "JPY", "flag": "🇯🇵"},
-    "BOC": {"id": "INTDSRCAM193N", "name": "BOC Policy Rate",   "currency": "CAD", "flag": "🇨🇦"},
-    "RBA": {"id": "INTDSRAUM193N", "name": "RBA Cash Rate",     "currency": "AUD", "flag": "🇦🇺"},
+    # Each entry has a list of candidate series IDs tried in order until one works.
+    # Candidates verified against FRED catalogue as of early 2026.
+    "FED": {
+        "ids": ["FEDFUNDS"],
+        "name": "Fed Funds Rate", "currency": "USD", "flag": "🇺🇸",
+    },
+    "ECB": {
+        "ids": ["ECBDFR"],
+        "name": "ECB Deposit Rate", "currency": "EUR", "flag": "🇪🇺",
+    },
+    "BOE": {
+        "ids": ["IUDSOIA", "BOEBR"],
+        "name": "BOE Base Rate", "currency": "GBP", "flag": "🇬🇧",
+    },
+    "BOJ": {
+        # BOJ near-zero rate: use overnight call rate or 3M Tibor as proxy
+        "ids": ["IRSTCB01JPM156N", "IR3TIB01JPM156N", "INTGSTJPM193N"],
+        "name": "BOJ Policy Rate", "currency": "JPY", "flag": "🇯🇵",
+    },
+    "BOC": {
+        # BOC overnight rate target
+        "ids": ["IRSTCB01CAM156N", "INTGSTCAM193N", "IR3TBB01CAM156N"],
+        "name": "BOC Policy Rate", "currency": "CAD", "flag": "🇨🇦",
+    },
+    "RBA": {
+        # RBA cash rate target
+        "ids": ["IRSTCB01AUM156N", "INTGSTAUM193N", "IR3TIB01AUM156N"],
+        "name": "RBA Cash Rate", "currency": "AUD", "flag": "🇦🇺",
+    },
 }
 
 FRED_API_KEY = os.environ.get("FRED_API_KEY", "")
@@ -73,6 +96,133 @@ def fetch_fred_series(series_id):
     except Exception as e:
         print(f"  FRED error ({series_id}): {e}")
         return None
+
+
+def fetch_rateprobability(cb_key):
+    """
+    Scrape rateprobability.com for a given CB (server-rendered HTML, no JS needed).
+    Returns dict with current_rate, next_meeting_date, next_meeting_prob,
+    next_meeting_direction, meetings list.
+    cb_key: fed, ecb, boj, boe, boc, rba
+    """
+    import re
+    url = f"https://rateprobability.com/{cb_key.lower()}"
+    try:
+        with _make_request(url, timeout=15) as resp:
+            raw = resp.read()
+        if raw[:2] == b'\x1f\x8b':
+            import gzip
+            raw = gzip.decompress(raw)
+        html = raw.decode("utf-8", errors="replace")
+    except Exception as e:
+        print(f"  rateprobability.com ({cb_key}): fetch error — {e}")
+        return None
+
+    result = {"cb": cb_key.upper(), "source": "rateprobability.com", "meetings": []}
+
+    # Current rate — several label patterns across different CB pages
+    rate_match = re.search(
+        r'(?:Target(?:[^:]{0,30})?:|Overnight Rate Target:|Cash Rate Target:|Current Rate)[^\d]*([\d.]+)%',
+        html, re.IGNORECASE
+    )
+    if rate_match:
+        result["current_rate"] = float(rate_match.group(1))
+    else:
+        print(f"  rateprobability.com ({cb_key}): could not parse current rate")
+        return None
+
+    # Parse meeting table rows
+    # Pattern: | Month DD, YYYY | X.XX% | (Y.Y%) or Y.Y% | ... | delta |
+    rows = re.findall(
+        r'\|\s*([A-Za-z]+ \d+,\s*\d{4})\s*\|' +
+        r'\s*([\d.]+)%\s*\|' +
+        r'\s*\(?([\d.]+)%\)?\s*\|' +
+        r'[^|]*\|' +
+        r'\s*\(?([-\d.]+)\)?',
+        html
+    )
+
+    now = datetime.now(timezone.utc)
+    for row in rows:
+        date_str, implied_str, prob_str, delta_str = row
+        try:
+            dt = datetime.strptime(date_str.strip(), "%b %d, %Y").replace(tzinfo=timezone.utc)
+        except Exception:
+            continue
+        if dt < now - timedelta(days=1):
+            continue
+
+        delta_bp = float(delta_str)
+        if abs(delta_bp) < 2:
+            direction = "hold"
+        elif delta_bp > 0:
+            direction = "hike"
+        else:
+            direction = "cut"
+
+        result["meetings"].append({
+            "date": dt,
+            "date_str": dt.strftime("%b %d, %Y"),
+            "implied_rate": float(implied_str),
+            "probability": float(prob_str),
+            "direction": direction,
+            "delta_bp": delta_bp,
+        })
+
+    if not result["meetings"]:
+        print(f"  rateprobability.com ({cb_key}): no future meetings parsed")
+        return None
+
+    next_mtg = result["meetings"][0]
+    result.update({
+        "next_meeting_date":      next_mtg["date_str"],
+        "next_meeting_direction": next_mtg["direction"],
+        "next_meeting_prob":      next_mtg["probability"],
+        "next_implied_rate":      next_mtg["implied_rate"],
+        "delta_bp":               next_mtg["delta_bp"],
+    })
+    print(f"  rateprobability.com ({cb_key.upper()}): {result['current_rate']}% → "
+          f"{next_mtg['direction']} {next_mtg['probability']}% @ {next_mtg['date_str']} "
+          f"(Δ{next_mtg['delta_bp']:+.1f}bp)")
+    return result
+
+
+def _rp_to_implied(rp):
+    """Convert fetch_rateprobability() result → implied_moves dict format."""
+    if not rp:
+        return None
+    return {
+        "direction":    rp["next_meeting_direction"],
+        "probability":  min(int(rp["next_meeting_prob"]), 95),
+        "spread_bp":    round(rp["delta_bp"], 1),
+        "forward_rate": round(rp["next_implied_rate"], 3),
+        "current_rate": round(rp["current_rate"], 3),
+        "fwd_label":    f"rateprobability.com",
+        "next_meeting": rp["next_meeting_date"],
+    }
+
+
+def _rp_to_cb_rate(rp):
+    """Convert fetch_rateprobability() result → cb_rates dict format."""
+    if not rp or "current_rate" not in rp:
+        return None
+    current = rp["current_rate"]
+    meetings = rp.get("meetings", [])
+    future_rate = meetings[0]["implied_rate"] if meetings else current
+    trend = "hiking" if future_rate > current + 0.05 else (
+            "cutting" if future_rate < current - 0.05 else "holding")
+    # Build a sparkline-compatible history from implied path
+    history = [(m["date_str"], m["implied_rate"]) for m in meetings[:6]]
+    if not history:
+        history = [(datetime.now().strftime("%Y-%m-%d"), current)]
+    return {
+        "current":  current,
+        "previous": current,
+        "trend":    trend,
+        "history":  history,
+        "date":     datetime.now().strftime("%Y-%m-%d"),
+        "source":   "rateprobability.com",
+    }
 
 def _parse_ff_xml(content, seen):
     """
@@ -198,11 +348,8 @@ def fetch_forex_factory_calendar():
     ff_feeds = [
         ("thisweek", "https://nfs.faireconomy.media/ff_calendar_thisweek.xml"),
         ("thisweek", "https://cdn-nfs.faireconomy.media/ff_calendar_thisweek.xml"),
-        # nextweek — try multiple URL patterns; FF changes these occasionally
+        # nextweek — FF publishes this late in the week; 404 is normal Mon–Thu
         ("nextweek", "https://nfs.faireconomy.media/ff_calendar_nextweek.xml"),
-        ("nextweek", "https://cdn-nfs.faireconomy.media/ff_calendar_nextweek.xml"),
-        ("nextweek", "https://nfs.faireconomy.media/ff_calendar_next_week.xml"),
-        ("nextweek", "https://nfs.faireconomy.media/ff_calendar_week2.xml"),
     ]
     fetched_weeks = set()
 
@@ -315,77 +462,76 @@ def fetch_implied_rate_changes(cb_rates):
     if not FRED_API_KEY:
         return {}
 
-    # Use 3-month market rates vs policy rate as forward proxy.
-    # Series verified on FRED — using government bill / interbank rates as forward proxies.
-    # BOC: DTB3 equivalent is TB3MS (3M T-Bill secondary market) for CAD → use IRSTCB01CAM156N
-    # For non-USD CBs we use the IMF short-term interbank rates available on FRED.
+    # Forward rate proxies: use the already-fetched cb_rates for the policy rate,
+    # and try candidate forward series in order until one returns data.
     FORWARD_PROXIES = {
-        "FED": {
-            "now": "FEDFUNDS",
-            "fwd": "DTB3",                  # 3M US T-Bill — daily, very liquid
-            "label": "3M T-Bill",
-        },
-        "ECB": {
-            "now": "ECBDFR",
-            "fwd": "IR3TIB01EZM156N",       # 3M Euribor
-            "label": "3M Euribor",
-        },
-        "BOE": {
-            "now": "IUDSOIA",
-            "fwd": "IR3TIB01GBM156N",       # 3M GBP interbank (LIBOR successor)
-            "label": "3M GBP Interbank",
-        },
-        "BOJ": {
-            "now": "INTDSRJPM193N",
-            "fwd": "IR3TIB01JPM156N",       # 3M JPY Tibor
-            "label": "3M JPY Tibor",
-        },
-        "BOC": {
-            "now": "INTDSRCAM193N",
-            "fwd": "IR3TIB01CAM156N",       # 3M CAD interbank
-            "label": "3M CAD Interbank",
-        },
-        "RBA": {
-            "now": "INTDSRAUM193N",
-            "fwd": "IR3TIB01AUM156N",       # 3M AUD interbank (BBSW proxy)
-            "label": "3M AUD Interbank",
-        },
+        "FED": {"fwd": ["DTB3"],                                        "label": "3M T-Bill"},
+        "ECB": {"fwd": ["IR3TIB01EZM156N"],                             "label": "3M Euribor"},
+        "BOE": {"fwd": ["IR3TIB01GBM156N", "IR3TBB01GBM156N"],         "label": "3M GBP Interbank"},
+        "BOJ": {"fwd": ["IR3TIB01JPM156N"],                             "label": "3M JPY Tibor"},
+        "BOC": {"fwd": ["IR3TIB01CAM156N", "IR3TBB01CAM156N", "TB3MS"],"label": "3M CAD Interbank"},
+        "RBA": {"fwd": ["IR3TIB01AUM156N", "IR3TBB01AUM156N"],         "label": "3M AUD Interbank"},
     }
 
     implied = {}
+
+    # Step 1: FRED spread method
+    fred_success = set()
     for cb, series in FORWARD_PROXIES.items():
         try:
-            now_rate = cb_rates.get(cb, {})
-            fwd_data = fetch_fred_series(series["fwd"])
-            if not now_rate or not fwd_data:
-                print(f"  Implied rate skip ({cb}): now_rate={bool(now_rate)} fwd={bool(fwd_data)}")
+            now_rate = cb_rates.get(cb)
+            if not now_rate:
                 continue
-
+            fwd_data  = None
+            fwd_label = series["label"]
+            for fwd_id in series["fwd"]:
+                fwd_data = fetch_fred_series(fwd_id)
+                if fwd_data:
+                    fwd_label = f"{series['label']} ({fwd_id})"
+                    break
+            if not fwd_data:
+                continue
             current   = now_rate["current"]
             forward   = fwd_data["current"]
             spread_bp = (forward - current) * 100
-
             if abs(spread_bp) < 5:
-                direction   = "hold"
-                probability = 0
+                direction, probability = "hold", 0
             elif spread_bp > 0:
                 direction   = "hike"
                 probability = min(int((spread_bp / 25) * 100), 95)
             else:
                 direction   = "cut"
                 probability = min(int((abs(spread_bp) / 25) * 100), 95)
-
             implied[cb] = {
                 "direction":    direction,
                 "probability":  probability,
                 "spread_bp":    round(spread_bp, 1),
                 "forward_rate": round(forward, 3),
                 "current_rate": round(current, 3),
-                "fwd_label":    series["label"],
+                "fwd_label":    fwd_label,
             }
-            print(f"  Implied {cb}: {direction} {probability}% (spread {spread_bp:+.1f}bp via {series['label']})")
+            fred_success.add(cb)
+            print(f"  Implied {cb}: {direction} {probability}% (spread {spread_bp:+.1f}bp via {fwd_label})")
         except Exception as e:
             print(f"  Implied rate error ({cb}): {e}")
+
+    # Step 2: rateprobability.com fallback for any CB still missing
+    rp_slugs = {"FED": "fed", "ECB": "ecb", "BOE": "boe",
+                "BOJ": "boj", "BOC": "boc", "RBA": "rba"}
+    missing = [cb for cb in FORWARD_PROXIES if cb not in fred_success]
+    if missing:
+        print(f"  FRED implied incomplete for {missing} — trying rateprobability.com...")
+    for cb in missing:
+        slug = rp_slugs.get(cb)
+        if not slug:
+            continue
+        rp = fetch_rateprobability(slug)
+        imp = _rp_to_implied(rp)
+        if imp:
+            implied[cb] = imp
+            if not cb_rates.get(cb):
+                cb_rates[cb] = _rp_to_cb_rate(rp)
+                print(f"  CB rate backfilled for {cb} from rateprobability.com: {imp['current_rate']}%")
 
     return implied
 
@@ -1224,7 +1370,7 @@ tr:hover td {{ background: #ffffff04; }}
 </main>
 
 <footer class="footer">
-  <span>Data: <a href="https://fred.stlouisfed.org" target="_blank">FRED</a> · <a href="https://www.forexfactory.com" target="_blank">Forex Factory</a></span>
+  <span>Data: <a href="https://fred.stlouisfed.org" target="_blank">FRED</a> · <a href="https://www.forexfactory.com" target="_blank">Forex Factory</a> · <a href="https://rateprobability.com" target="_blank">rateprobability.com</a></span>
   <span>Generated: {now_str}</span>
   <span>Portfolio: {len(PORTFOLIO)} bots · {len(ALL_PAIRS)} pairs</span>
 </footer>
@@ -1261,12 +1407,29 @@ def generate_sparkline(history, css_class="spark-flat"):
 def main():
     print(f"[{datetime.now().strftime('%H:%M:%S')}] Starting macro dashboard generation...")
 
-    # 1. Fetch CB rates
+    # 1. Fetch CB rates — try FRED candidates, then rateprobability.com as fallback
     print("  Fetching central bank rates from FRED...")
     cb_rates = {}
+    rp_slugs = {"FED": "fed", "ECB": "ecb", "BOE": "boe",
+                "BOJ": "boj", "BOC": "boc", "RBA": "rba"}
     for cb, info in FRED_SERIES.items():
-        print(f"    → {cb} ({info['id']})")
-        cb_rates[cb] = fetch_fred_series(info["id"])
+        result = None
+        for sid in info["ids"]:
+            print(f"    → {cb} trying {sid}")
+            result = fetch_fred_series(sid)
+            if result:
+                print(f"    → ✓ {cb} loaded from {sid}: {result['current']}%")
+                break
+        if not result:
+            # Fallback: pull current rate from rateprobability.com
+            slug = rp_slugs.get(cb)
+            if slug:
+                print(f"    → {cb} FRED failed — trying rateprobability.com...")
+                rp = fetch_rateprobability(slug)
+                result = _rp_to_cb_rate(rp)
+                if result:
+                    print(f"    → ✓ {cb} loaded from rateprobability.com: {result['current']}%")
+        cb_rates[cb] = result
     loaded = sum(1 for v in cb_rates.values() if v)
     print(f"  Loaded {loaded}/{len(FRED_SERIES)} CB rates")
 
