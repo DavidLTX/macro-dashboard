@@ -14,11 +14,10 @@ from xml.etree import ElementTree as ET
 
 # ── Portfolio Configuration ────────────────────────────────────────────────────
 PORTFOLIO = {
-    "FX InControl":  {"pairs": ["EURJPY", "USDCAD", "EURGBP"], "strategy": "Fibonacci Grid", "color": "#a78bfa"},
-    "FX JetBot":     {"pairs": ["EURUSD", "EURJPY", "USDCAD", "AUDUSD", "EURGBP"], "strategy": "Dual-Dir Grid", "color": "#22c55e"},
-    "Happy Gold":    {"pairs": ["XAUUSD"], "strategy": "Fixed-Lot Scalper", "color": "#fcd34d"},
-    "Happy Power":   {"pairs": ["EURCHF"], "strategy": "Grid Scalper", "color": "#f97316"},
-    "Hedge EA":      {"pairs": ["AUDCAD"], "strategy": "Dual-Dir Grid", "color": "#2dd4bf"},
+    "Control": {"pairs": ["EURJPY", "USDCAD", "EURGBP"], "strategy": "Fibonacci Grid", "color": "#a78bfa"},
+    "Jet":     {"pairs": ["EURUSD", "EURJPY", "USDCAD", "EURGBP"], "strategy": "Dual-Dir Grid", "color": "#22c55e"},
+    "HGold":   {"pairs": ["XAUUSD"], "strategy": "Fixed-Lot Scalper", "color": "#fcd34d"},
+    "Hedge":   {"pairs": ["AUDCAD"], "strategy": "Dual-Dir Grid", "color": "#2dd4bf"},
 }
 
 # All unique pairs across portfolio
@@ -30,10 +29,8 @@ PAIR_CB_MAP = {
     "USDCAD":  ["FED", "BOC"],
     "EURGBP":  ["ECB", "BOE"],
     "EURUSD":  ["ECB", "FED"],
-    "AUDUSD":  ["RBA", "FED"],
     "AUDCAD":  ["RBA", "BOC"],
     "XAUUSD":  ["FED"],
-    "EURCHF":  ["ECB", "SNB"],
 }
 
 # FRED series for central bank policy rates
@@ -44,7 +41,6 @@ FRED_SERIES = {
     "BOJ": {"id": "IRSTCB01JPM156N", "name": "BOJ Policy Rate",  "currency": "JPY", "flag": "🇯🇵"},
     "BOC": {"id": "IRSTCB01CAM156N", "name": "BOC Policy Rate",  "currency": "CAD", "flag": "🇨🇦"},
     "RBA": {"id": "RBAAOARD",        "name": "RBA Cash Rate",    "currency": "AUD", "flag": "🇦🇺"},
-    "SNB": {"id": "IRSTCB01CHQ156N", "name": "SNB Policy Rate",  "currency": "CHF", "flag": "🇨🇭"},
 }
 
 FRED_API_KEY = os.environ.get("FRED_API_KEY", "")
@@ -208,10 +204,11 @@ def generate_html(cb_rates, events, alerts):
             prev = f"{rate['previous']:.2f}%"
             arrow = trend_arrow(rate["trend"])
             trend_cls = {"hiking":"trend-up","cutting":"trend-down","holding":"trend-flat"}.get(rate["trend"],"trend-flat")
-            sparkline = generate_sparkline(rate.get("history", []))
+            spark_cls = {"hiking":"spark-up","cutting":"spark-down","holding":"spark-flat"}.get(rate["trend"],"spark-flat")
+            sparkline = generate_sparkline(rate.get("history", []), spark_cls)
             as_of = rate.get("date", "")
         else:
-            val = "N/A"; prev = "–"; arrow = ""; trend_cls = "trend-flat"; sparkline = ""; as_of = ""
+            val = "N/A"; prev = "–"; arrow = ""; trend_cls = "trend-flat"; sparkline = ""; as_of = ""; spark_cls = ""
 
         cb_cards_html += f"""
         <div class="cb-card {trend_cls}">
@@ -298,7 +295,7 @@ def generate_html(cb_rates, events, alerts):
         </tr>"""
 
     # ── Inline Sparkline SVG ──
-    def mini_spark(history):
+    def mini_spark(history, css_class="spark-flat"):
         if not history or len(history) < 2:
             return ""
         try:
@@ -307,13 +304,17 @@ def generate_html(cb_rates, events, alerts):
             return ""
         mn, mx = min(vals), max(vals)
         rng = mx - mn or 0.01
-        w, h = 60, 20
+        w, h = 200, 36
         n = len(vals)
         pts = " ".join(
-            f"{int(i*(w/max(n-1,1)))},{int(h - (v-mn)/rng*h)}"
+            f"{int(i*(w/max(n-1,1)))},{int(h - (v-mn)/rng*(h-4)+2)}"
             for i, v in enumerate(vals)
         )
-        return f'<svg class="spark" viewBox="0 0 {w} {h}"><polyline points="{pts}" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>'
+        return (
+            f'<svg class="spark {css_class}" viewBox="0 0 {w} {h}" preserveAspectRatio="none">'
+            f'<polyline points="{pts}" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>'
+            f'</svg>'
+        )
 
     spark_lookup = {cb: mini_spark(cb_rates[cb]["history"]) if cb_rates.get(cb) else "" for cb in FRED_SERIES}
 
@@ -325,7 +326,7 @@ def generate_html(cb_rates, events, alerts):
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="refresh" content="3600">
 <title>Macro Dashboard — FX Bot Portfolio</title>
-<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&family=Barlow:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 :root {{
   --bg:       #08080f;
@@ -347,8 +348,8 @@ html {{ scroll-behavior: smooth; }}
 body {{
   background: var(--bg);
   color: var(--text);
-  font-family: 'Space Mono', monospace;
-  font-size: 13px;
+  font-family: 'Barlow', sans-serif;
+  font-size: 14px;
   min-height: 100vh;
   background-image:
     radial-gradient(ellipse 80% 50% at 50% -20%, #1a0a3a44 0%, transparent 60%),
@@ -367,32 +368,36 @@ body {{
   gap: 16px;
 }}
 .header-left h1 {{
-  font-family: 'Syne', sans-serif;
-  font-size: 28px;
+  font-family: 'Barlow', sans-serif;
+  font-size: 30px;
   font-weight: 800;
-  letter-spacing: -0.5px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   color: #fff;
 }}
 .header-left h1 span {{ color: var(--purple); }}
 .header-sub {{
   color: var(--dim);
-  font-size: 11px;
+  font-size: 13px;
   margin-top: 6px;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.03em;
+  font-weight: 500;
 }}
 .header-right {{
   text-align: right;
 }}
 .updated-label {{
-  font-size: 10px;
+  font-size: 11px;
   color: var(--dimmer);
   letter-spacing: 0.08em;
   text-transform: uppercase;
+  font-family: 'IBM Plex Mono', monospace;
 }}
 .updated-time {{
   font-size: 12px;
   color: var(--dim);
-  margin-top: 2px;
+  margin-top: 4px;
+  font-family: 'IBM Plex Mono', monospace;
 }}
 .live-dot {{
   display: inline-block;
@@ -410,31 +415,31 @@ body {{
 /* ── Layout ── */
 .main {{ padding: 32px 40px; display: flex; flex-direction: column; gap: 36px; }}
 .section-title {{
-  font-family: 'Syne', sans-serif;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.15em;
+  font-family: 'Barlow', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--dim);
-  margin-bottom: 16px;
-  padding-bottom: 8px;
+  margin-bottom: 18px;
+  padding-bottom: 10px;
   border-bottom: 1px solid var(--border);
 }}
 
 /* ── CB Rate Cards ── */
 .cb-grid {{
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
   gap: 12px;
 }}
 .cb-card {{
   background: var(--card);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 16px;
+  border-radius: 10px;
+  padding: 20px 20px 16px;
   position: relative;
   overflow: hidden;
-  transition: border-color 0.2s;
+  transition: border-color 0.2s, transform 0.15s;
 }}
 .cb-card::before {{
   content: '';
@@ -445,41 +450,46 @@ body {{
 .trend-up::before   {{ background: linear-gradient(90deg, var(--red), #ff6b6b); }}
 .trend-down::before {{ background: linear-gradient(90deg, var(--green), #4ade80); }}
 .trend-flat::before {{ background: linear-gradient(90deg, var(--blue), #93c5fd); }}
-.cb-card:hover {{ border-color: var(--border2); }}
+.cb-card:hover {{ border-color: var(--border2); transform: translateY(-1px); }}
 .cb-header {{
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin-bottom: 8px;
+  gap: 8px;
+  margin-bottom: 12px;
 }}
-.cb-flag {{ font-size: 16px; }}
+.cb-flag {{ font-size: 20px; }}
 .cb-name {{
-  font-family: 'Syne', sans-serif;
-  font-size: 13px;
-  font-weight: 700;
-  color: #fff;
-  flex: 1;
-}}
-.arrow {{ font-size: 11px; }}
-.arrow.up   {{ color: var(--red); }}
-.arrow.down {{ color: var(--green); }}
-.arrow.flat {{ color: var(--blue); font-size: 8px; }}
-.cb-rate {{
-  font-family: 'Syne', sans-serif;
-  font-size: 26px;
+  font-family: 'Barlow', sans-serif;
+  font-size: 16px;
   font-weight: 800;
   color: #fff;
+  flex: 1;
+  letter-spacing: 0.04em;
+}}
+.arrow {{ font-size: 13px; }}
+.arrow.up   {{ color: var(--red); }}
+.arrow.down {{ color: var(--green); }}
+.arrow.flat {{ color: var(--blue); font-size: 9px; }}
+.cb-rate {{
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 34px;
+  font-weight: 700;
+  color: #fff;
   letter-spacing: -1px;
+  line-height: 1;
 }}
-.cb-sub  {{ font-size: 10px; color: var(--dim); margin-top: 2px; }}
-.cb-prev {{ font-size: 10px; color: var(--dimmer); margin-top: 4px; }}
-.cb-asof {{ font-size: 9px; color: var(--dimmer); margin-top: 6px; }}
+.cb-sub  {{ font-size: 12px; color: var(--dim); margin-top: 6px; font-weight: 500; }}
+.cb-prev {{ font-size: 12px; color: var(--dimmer); margin-top: 4px; font-family: 'IBM Plex Mono', monospace; }}
+.cb-asof {{ font-size: 10px; color: var(--dimmer); margin-top: 8px; font-family: 'IBM Plex Mono', monospace; }}
 .spark {{
-  width: 60px; height: 20px;
-  margin-top: 8px;
-  color: var(--purple);
-  opacity: 0.7;
+  display: block;
+  width: 100%;
+  height: 36px;
+  margin-top: 12px;
 }}
+.spark-up   {{ color: #ff6060; }}
+.spark-down {{ color: #4ade80; }}
+.spark-flat {{ color: #93c5fd; }}
 
 /* ── Alerts ── */
 .alerts-grid {{
@@ -504,10 +514,11 @@ body {{
   margin-bottom: 8px;
 }}
 .alert-cb {{
-  font-family: 'Syne', sans-serif;
-  font-weight: 700;
+  font-family: 'Barlow', sans-serif;
+  font-weight: 800;
   color: #fff;
-  font-size: 13px;
+  font-size: 15px;
+  letter-spacing: 0.04em;
 }}
 .alert-sev {{
   font-size: 9px;
@@ -519,8 +530,8 @@ body {{
 .sev-critical .alert-sev {{ background: var(--red);   color: #fff; }}
 .sev-high     .alert-sev {{ background: var(--amber); color: #000; }}
 .sev-medium   .alert-sev {{ background: var(--blue);  color: #000; }}
-.alert-event {{ font-size: 13px; color: var(--text); margin-bottom: 6px; line-height: 1.4; }}
-.alert-date  {{ font-size: 11px; color: var(--dim); margin-bottom: 8px; }}
+.alert-event {{ font-size: 14px; color: var(--text); margin-bottom: 6px; line-height: 1.4; font-weight: 500; }}
+.alert-date  {{ font-size: 12px; color: var(--dim); margin-bottom: 8px; font-family: 'IBM Plex Mono', monospace; }}
 .alert-meta  {{ font-size: 11px; color: var(--dim); margin-bottom: 8px; display: flex; gap: 12px; }}
 .forecast      {{ color: var(--blue); }}
 .forecast-prev {{ color: var(--dimmer); }}
@@ -597,7 +608,13 @@ tr:hover td {{ background: #ffffff04; }}
 .portfolio-table {{ background: var(--card); border-radius: 8px; overflow: hidden; border: 1px solid var(--border); }}
 .risk-ok    td {{ }}
 .risk-alert td {{ background: #ff3b3b08; }}
-.pair-name {{ font-family: 'Syne', sans-serif; font-weight: 700; color: #fff; font-size: 14px; }}
+.pair-name {{
+  font-family: 'IBM Plex Mono', monospace;
+  font-weight: 700;
+  color: #fff;
+  font-size: 14px;
+  letter-spacing: 0.05em;
+}}
 .cb-badge {{
   display: inline-block;
   background: #ffffff10;
@@ -631,9 +648,10 @@ tr:hover td {{ background: #ffffff04; }}
   justify-content: space-between;
   align-items: center;
   color: var(--dimmer);
-  font-size: 10px;
+  font-size: 11px;
   flex-wrap: wrap;
   gap: 8px;
+  font-family: 'IBM Plex Mono', monospace;
 }}
 .footer a {{ color: var(--dim); text-decoration: none; }}
 .footer a:hover {{ color: var(--text); }}
@@ -732,23 +750,26 @@ tr:hover td {{ background: #ffffff04; }}
     return html
 
 
-def generate_sparkline(history):
+def generate_sparkline(history, css_class="spark-flat"):
     if not history or len(history) < 2:
         return ""
-    # history is a list of (date_str, float) tuples
     try:
         vals = [v for _, v in history]
     except (TypeError, ValueError):
         return ""
     mn, mx = min(vals), max(vals)
     rng = mx - mn or 0.01
-    w, h = 60, 18
+    w, h = 200, 36
     n = len(vals)
     pts = " ".join(
-        f"{int(i * (w / max(n - 1, 1)))},{int(h - (v - mn) / rng * (h - 2) + 1)}"
+        f"{int(i * (w / max(n - 1, 1)))},{int(h - (v - mn) / rng * (h - 4) + 2)}"
         for i, v in enumerate(vals)
     )
-    return f'<svg class="spark" viewBox="0 0 {w} {h}"><polyline points="{pts}" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>'
+    return (
+        f'<svg class="spark {css_class}" viewBox="0 0 {w} {h}" preserveAspectRatio="none">'
+        f'<polyline points="{pts}" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>'
+        f'</svg>'
+    )
 
 
 # ── Main ───────────────────────────────────────────────────────────────────────
