@@ -720,8 +720,12 @@ def generate_html(cb_rates, events, alerts, implied_moves):
     # ── Event Calendar ──
     cal_rows = ""
     shown = 0
-    for e in events[:20]:
+    now_utc = datetime.now(timezone.utc)
+    for e in events[:40]:
         if not e["date"]:
+            continue
+        # Skip events that have already passed
+        if e["date"] < now_utc - timedelta(hours=1):
             continue
         impact_cls = "imp-high" if e["impact"] == "high" else "imp-med"
         cb_affected = any(
@@ -729,7 +733,13 @@ def generate_html(cb_rates, events, alerts, implied_moves):
             for bot in PORTFOLIO.values() for p in bot["pairs"]
         )
         row_cls = "row-highlight" if cb_affected else ""
-        actual_str = f'<span class="actual-val">{e["actual"]}</span>' if e["actual"] else '<span class="pending">pending</span>'
+        is_past = e["date"] < now_utc
+        if e["actual"]:
+            actual_str = f'<span class="actual-val">{e["actual"]}</span>'
+        elif is_past:
+            actual_str = '<span class="pending">–</span>'
+        else:
+            actual_str = '<span class="pending">pending</span>'
         cal_rows += f"""
         <tr class="{row_cls}">
           <td>{e['date'].strftime('%a %b %d') if e['date'] else '–'}</td>
@@ -1146,13 +1156,14 @@ tr:hover td {{ background: #ffffff04; }}
   display: inline-block;
   border: 1px solid;
   border-radius: 3px;
-  padding: 1px 7px;
-  font-size: 10px;
+  padding: 3px 10px;
+  font-size: 13px;
+  font-weight: 600;
   margin-right: 4px;
   color: var(--text);
   background: #ffffff06;
 }}
-.risk-icon {{ font-size: 14px; text-align: center; }}
+.risk-icon {{ font-size: 16px; text-align: center; vertical-align: middle; line-height: 1; }}
 .risk-ok    .risk-icon {{ color: var(--green); }}
 .risk-alert .risk-icon {{ color: var(--amber); }}
 
@@ -1238,7 +1249,7 @@ tr:hover td {{ background: #ffffff04; }}
   gap: 6px;
 }}
 .imp-cb {{ font-family: 'Barlow', sans-serif; font-weight: 800; font-size: 15px; color: #fff; }}
-.imp-source {{ font-size: 10px; color: #6666aa; margin-top: 5px; font-family: 'IBM Plex Mono', monospace; letter-spacing: 0.03em; }}
+.imp-source {{ font-size: 12px; color: #c0c0e8; margin-top: 6px; font-family: 'IBM Plex Mono', monospace; letter-spacing: 0.03em; font-weight: 600; }}
 .imp-prob-bar {{ height: 5px; background: var(--border2); border-radius: 3px; overflow: hidden; margin: 4px 0; }}
 .imp-prob-fill {{ height: 100%; border-radius: 3px; transition: width 0.3s; }}
 .imp-hike {{ background: linear-gradient(90deg, #ff3b3b, #ff6b6b); }}
