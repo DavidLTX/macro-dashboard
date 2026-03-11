@@ -115,9 +115,9 @@ body {
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: 10px;
-  padding: 20px 20px 16px;
+  padding: 20px 20px 12px;
   position: relative;
-  overflow: hidden;
+  overflow: visible;
   transition: border-color 0.2s, transform 0.15s;
 }
 .cb-card::before {
@@ -174,12 +174,15 @@ body {
 }
 .cb-sub  { font-size: 12px; color: #b0b0d8; margin-top: 6px; font-weight: 600; }
 .cb-prev { font-size: 12px; color: #a0a0cc; margin-top: 4px; font-family: 'IBM Plex Mono', monospace; }
-.cb-asof { font-size: 11px; color: #8888bb; margin-top: 8px; font-family: 'IBM Plex Mono', monospace; }
+.cb-asof { font-size: 11px; color: #8888bb; margin-top: 4px; font-family: 'IBM Plex Mono', monospace; }
+.cb-spark-label { font-size: 10px; color: #5555888; margin-top: 2px; font-family: 'IBM Plex Mono', monospace; letter-spacing: 0.05em; }
 .spark {
   display: block;
   width: 100%;
-  height: 36px;
-  margin-top: 12px;
+  height: 40px;
+  margin-top: 10px;
+  margin-bottom: 2px;
+  overflow: visible;
 }
 .spark-up   { color: #ff6060; }
 .spark-down { color: #4ade80; }
@@ -418,6 +421,7 @@ tr:hover td { background: #ffffff04; }
   gap: 6px;
 }
 .imp-cb { font-family: 'Barlow', sans-serif; font-weight: 800; font-size: 15px; color: #fff; }
+.imp-source { font-size: 10px; color: #6666aa; margin-top: 5px; font-family: 'IBM Plex Mono', monospace; letter-spacing: 0.03em; }
 .imp-prob-bar { height: 5px; background: var(--border2); border-radius: 3px; overflow: hidden; margin: 4px 0; }
 .imp-prob-fill { height: 100%; border-radius: 3px; transition: width 0.3s; }
 .imp-hike { background: linear-gradient(90deg, #ff3b3b, #ff6b6b); }
@@ -441,7 +445,7 @@ tr:hover td { background: #ffffff04; }
   </div>
   <div class="header-right">
     <div class="updated-label"><span class="live-dot"></span>Auto-refreshes hourly</div>
-    <div class="updated-time">Wednesday, March 11 2026 — 04:35 UTC</div>
+    <div class="updated-time">Wednesday, March 11 2026 — 04:43 UTC</div>
   </div>
 </header>
 
@@ -462,6 +466,7 @@ tr:hover td { background: #ffffff04; }
           <div class="cb-sub">Fed Funds Rate</div>
           <div class="cb-prev">Prev: 3.64%</div>
           <svg class="spark spark-flat" viewBox="0 0 200 36" preserveAspectRatio="none"><polyline points="0,6 40,13 80,24 120,33 160,38 200,38" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <div class="cb-spark-label">6-month rate history</div>
           <div class="cb-asof">as of 2026-02-01</div>
         </div>
         <div class="cb-card trend-flat">
@@ -474,6 +479,7 @@ tr:hover td { background: #ffffff04; }
           <div class="cb-sub">ECB Deposit Rate</div>
           <div class="cb-prev">Prev: 2.00%</div>
           <svg class="spark spark-flat" viewBox="0 0 200 36" preserveAspectRatio="none"><polyline points="0,38 40,38 80,38 120,38 160,38 200,38" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <div class="cb-spark-label">6-month rate history</div>
           <div class="cb-asof">as of 2026-03-10</div>
         </div>
         <div class="cb-card trend-down">
@@ -486,6 +492,7 @@ tr:hover td { background: #ffffff04; }
           <div class="cb-sub">BOE Base Rate</div>
           <div class="cb-prev">Prev: 3.73%</div>
           <svg class="spark spark-down" viewBox="0 0 200 36" preserveAspectRatio="none"><polyline points="0,38 40,34 80,21 120,7 160,6 200,6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <div class="cb-spark-label">6-month rate history</div>
           <div class="cb-asof">as of 2026-03-06</div>
         </div>
         <div class="cb-card trend-up">
@@ -498,6 +505,7 @@ tr:hover td { background: #ffffff04; }
           <div class="cb-sub">BOJ Policy Rate</div>
           <div class="cb-prev">Prev: 1.07%</div>
           <svg class="spark spark-up" viewBox="0 0 200 36" preserveAspectRatio="none"><polyline points="0,36 50,37 100,38 150,10 200,6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <div class="cb-spark-label">6-month rate history</div>
           <div class="cb-asof">as of 2026-01-01</div>
         </div>
         <div class="cb-card trend-flat">
@@ -510,6 +518,7 @@ tr:hover td { background: #ffffff04; }
           <div class="cb-sub">BOC Policy Rate</div>
           <div class="cb-prev">Prev: –</div>
           
+          <div class="cb-spark-label">6-month rate history</div>
           <div class="cb-asof">as of </div>
         </div>
         <div class="cb-card trend-up">
@@ -522,6 +531,7 @@ tr:hover td { background: #ffffff04; }
           <div class="cb-sub">RBA Cash Rate</div>
           <div class="cb-prev">Prev: 3.71%</div>
           <svg class="spark spark-up" viewBox="0 0 200 36" preserveAspectRatio="none"><polyline points="0,34 50,38 100,24 150,15 200,6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <div class="cb-spark-label">6-month rate history</div>
           <div class="cb-asof">as of 2026-01-01</div>
         </div>
     </div>
@@ -540,6 +550,7 @@ tr:hover td { background: #ffffff04; }
                 <div class="imp-prob-fill imp-hold" style="width:0%"></div>
               </div>
               <div class="imp-rates">Current: 3.64% → Fwd: 3.61% (-3.0bp)</div>
+              <div class="imp-source">3M T-Bill (DTB3)</div>
             </div>
             <div class="implied-card">
               <div class="imp-cb">ECB</div>
@@ -549,6 +560,7 @@ tr:hover td { background: #ffffff04; }
                 <div class="imp-prob-fill imp-hold" style="width:0%"></div>
               </div>
               <div class="imp-rates">Current: 2.0% → Fwd: 2.028% (+2.8bp)</div>
+              <div class="imp-source">3M Euribor (IR3TIB01EZM156N)</div>
             </div>
             <div class="implied-card">
               <div class="imp-cb">BOE</div>
@@ -558,6 +570,7 @@ tr:hover td { background: #ffffff04; }
                 <div class="imp-prob-fill imp-hold" style="width:0%"></div>
               </div>
               <div class="imp-rates">Current: 3.73% → Fwd: 3.71% (-2.0bp)</div>
+              <div class="imp-source">3M GBP Interbank (IR3TIB01GBM156N)</div>
             </div>
             <div class="implied-card">
               <div class="imp-cb">BOJ</div>
@@ -567,6 +580,7 @@ tr:hover td { background: #ffffff04; }
                 <div class="imp-prob-fill imp-hold" style="width:0%"></div>
               </div>
               <div class="imp-rates">Current: 1.12% → Fwd: 1.12% (+0.0bp)</div>
+              <div class="imp-source">3M JPY Tibor (IR3TIB01JPM156N)</div>
             </div>
             <div class="implied-card">
               <div class="imp-cb">RBA</div>
@@ -576,6 +590,7 @@ tr:hover td { background: #ffffff04; }
                 <div class="imp-prob-fill imp-hold" style="width:0%"></div>
               </div>
               <div class="imp-rates">Current: 3.77% → Fwd: 3.77% (+0.0bp)</div>
+              <div class="imp-source">3M AUD Interbank (IR3TIB01AUM156N)</div>
             </div>
     </div>
   </section>
@@ -1072,7 +1087,7 @@ tr:hover td { background: #ffffff04; }
 
 <footer class="footer">
   <span>Data: <a href="https://fred.stlouisfed.org" target="_blank">FRED</a> · <a href="https://www.forexfactory.com" target="_blank">Forex Factory</a> · <a href="https://rateprobability.com" target="_blank">rateprobability.com</a></span>
-  <span>Generated: Wednesday, March 11 2026 — 04:35 UTC</span>
+  <span>Generated: Wednesday, March 11 2026 — 04:43 UTC</span>
   <span>Portfolio: 4 bots · 6 pairs</span>
 </footer>
 
