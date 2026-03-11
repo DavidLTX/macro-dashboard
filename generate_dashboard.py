@@ -216,11 +216,18 @@ def fetch_rateprobability(cb_key):
             continue
 
         is_cut = bool(row.get("prob_is_cut", False))
-        direction = "hold" if abs(delta_bp) < 1.5 else ("cut" if (delta_bp < 0 or is_cut) else "hike")
+        # Use implied - current for delta (change_bps may be vs stale baseline)
+        real_delta = (implied_rate - result["current_rate"]) * 100
+        if prob < 5:
+            direction = "hold"
+        elif is_cut:
+            direction = "cut"
+        else:
+            direction = "hike"
         result["meetings"].append({
             "date": dt, "date_str": dt.strftime("%b %d, %Y"),
             "implied_rate": implied_rate, "probability": prob,
-            "direction": direction, "delta_bp": delta_bp,
+            "direction": direction, "delta_bp": real_delta,
         })
 
     if not result["meetings"]:
@@ -586,12 +593,10 @@ def fetch_implied_rate_changes(cb_rates):
 
 
 def compute_alerts(cb_rates, upcoming_events, implied_moves):
-    """Generate volatility alerts: 0-7 days (confirmed events) + 7-14 days (outlook)."""
+    """Generate volatility alerts for events in the next 7 days affecting portfolio pairs."""
     alerts   = []
-    outlook  = []
     now      = datetime.now(timezone.utc)
     next_7d  = now + timedelta(days=7)
-    next_14d = now + timedelta(days=14)
 
     # ── Confirmed alerts: events in next 7 days ──
     for event in upcoming_events:
@@ -624,64 +629,6 @@ def compute_alerts(cb_rates, upcoming_events, implied_moves):
             "pause_rec": pause_rec, "window": "7d",
         })
 
-    # ── Outlook: events in 7-14 days ──
-    for event in upcoming_events:
-        if not event["date"] or not (next_7d < event["date"] <= next_14d):
-            continue
-
-        affected_pairs = [p for p, cbs in PAIR_CB_MAP.items() if event["cb"] in cbs]
-        affected_bots  = [bot for bot, cfg in PORTFOLIO.items() if any(p in affected_pairs for p in cfg["pairs"])]
-        if not affected_pairs:
-            continue
-
-        days_away = (event["date"] - now).days
-        is_rate_decision = any(kw in event["title"].lower() for kw in
-                               ["rate", "decision", "policy", "statement", "minutes", "nfp", "non-farm", "cpi", "inflation"])
-
-        # Check if there's also a strong implied move for this CB
-        imp = implied_moves.get(event["cb"], {})
-        imp_prob   = imp.get("probability", 0)
-        imp_dir    = imp.get("direction", "")
-        imp_str    = f"Market implies {imp_prob}% chance of {imp_dir}" if imp_prob > 20 else ""
-
-        severity = "high" if (is_rate_decision and imp_prob > 50) else "medium"
-        pause_rec = "PREPARE TO PAUSE" if severity == "high" else ""
-
-        outlook.append({
-            "event": event["title"], "cb": event["cb"],
-            "date": event["date"].strftime("%a %b %d, %H:%M UTC"),
-            "days_away": days_away, "pairs": affected_pairs, "bots": affected_bots,
-            "severity": severity, "impact": event["impact"],
-            "forecast": event["forecast"], "previous": event["previous"],
-            "implied": imp_str, "pause_rec": pause_rec, "window": "14d",
-        })
-
-    # ── Implied move alerts (market-based, no scheduled event needed) ──
-    # These fill the 14-day outlook even when nextweek feed is unavailable.
-    # Threshold: 25%+ probability surfaces as an outlook item for portfolio pairs.
-    for cb, imp in implied_moves.items():
-        if imp["probability"] < 25 or imp["direction"] == "hold":
-            continue
-        affected_pairs = [p for p, cbs in PAIR_CB_MAP.items() if cb in cbs]
-        affected_bots  = [bot for bot, cfg in PORTFOLIO.items() if any(p in affected_pairs for p in cfg["pairs"])]
-        if not affected_pairs:
-            continue
-        # Only add if not already covered by a confirmed scheduled event
-        already = any(a["cb"] == cb for a in alerts + outlook)
-        if not already:
-            severity  = "high" if imp["probability"] >= 50 else "medium"
-            fwd_label = imp.get("fwd_label", "Forward rate")
-            outlook.append({
-                "event": f"Market pricing {imp['probability']}% {imp['direction']} probability",
-                "cb": cb, "date": "No meeting scheduled in feed",
-                "days_away": 999, "pairs": affected_pairs, "bots": affected_bots,
-                "severity": severity, "impact": "implied",
-                "forecast": f"{imp['forward_rate']}%", "previous": f"{imp['current_rate']}%",
-                "implied": f"{fwd_label}: {imp['forward_rate']}% vs policy {imp['current_rate']}% ({imp['spread_bp']:+.1f}bp spread)",
-                "pause_rec": "PREPARE TO PAUSE" if imp["probability"] >= 50 else "MONITOR",
-                "window": "implied",
-            })
-
     # ── Structural divergence alerts ──
     loaded = {k: v for k, v in cb_rates.items() if v}
     for pair, cbs in PAIR_CB_MAP.items():
@@ -697,7 +644,7 @@ def compute_alerts(cb_rates, upcoming_events, implied_moves):
                     "forecast": "", "previous": "", "pause_rec": "", "window": "7d",
                 })
 
-    return alerts, outlook
+    return alerts
 
 # ── HTML Generation ────────────────────────────────────────────────────────────
 
@@ -1466,8 +1413,8 @@ def main():
     print(f"  Found {len(events)} high/medium-impact events")
 
     # 4. Compute alerts and outlook
-    alerts, outlook = compute_alerts(cb_rates, events, implied_moves)
-    print(f"  Generated {len(alerts)} alerts + {len(outlook)} outlook items")
+    alerts = compute_alerts(cb_rates, events, implied_moves)
+    print(f"  Generated {len(alerts)} alerts")
 
     # 5. Generate HTML
     print("  Generating HTML dashboard...")
