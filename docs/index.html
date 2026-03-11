@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="refresh" content="3600">
+<title>Macro Dashboard — FX Bot Portfolio</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:       #08080f;
+  --card:     #10101a;
+  --card2:    #14141f;
+  --border:   #1e1e30;
+  --border2:  #2a2a40;
+  --red:      #ff3b3b;
+  --amber:    #f59e0b;
+  --green:    #22c55e;
+  --blue:     #60a5fa;
+  --purple:   #a78bfa;
+  --text:     #ddddf0;
+  --dim:      #7777aa;
+  --dimmer:   #44445a;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Space Mono', monospace;
+  font-size: 13px;
+  min-height: 100vh;
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -20%, #1a0a3a44 0%, transparent 60%),
+    repeating-linear-gradient(0deg, transparent, transparent 40px, #ffffff03 40px, #ffffff03 41px),
+    repeating-linear-gradient(90deg, transparent, transparent 40px, #ffffff03 40px, #ffffff03 41px);
+}
+
+/* ── Header ── */
+.header {
+  padding: 40px 40px 24px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+.header-left h1 {
+  font-family: 'Syne', sans-serif;
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  color: #fff;
+}
+.header-left h1 span { color: var(--purple); }
+.header-sub {
+  color: var(--dim);
+  font-size: 11px;
+  margin-top: 6px;
+  letter-spacing: 0.05em;
+}
+.header-right {
+  text-align: right;
+}
+.updated-label {
+  font-size: 10px;
+  color: var(--dimmer);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.updated-time {
+  font-size: 12px;
+  color: var(--dim);
+  margin-top: 2px;
+}
+.live-dot {
+  display: inline-block;
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--green);
+  margin-right: 6px;
+  animation: pulse 2s infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 #22c55e66; }
+  50% { opacity: 0.7; box-shadow: 0 0 0 5px #22c55e00; }
+}
+
+/* ── Layout ── */
+.main { padding: 32px 40px; display: flex; flex-direction: column; gap: 36px; }
+.section-title {
+  font-family: 'Syne', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--dim);
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* ── CB Rate Cards ── */
+.cb-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+}
+.cb-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.2s;
+}
+.cb-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+}
+.trend-up::before   { background: linear-gradient(90deg, var(--red), #ff6b6b); }
+.trend-down::before { background: linear-gradient(90deg, var(--green), #4ade80); }
+.trend-flat::before { background: linear-gradient(90deg, var(--blue), #93c5fd); }
+.cb-card:hover { border-color: var(--border2); }
+.cb-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.cb-flag { font-size: 16px; }
+.cb-name {
+  font-family: 'Syne', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  flex: 1;
+}
+.arrow { font-size: 11px; }
+.arrow.up   { color: var(--red); }
+.arrow.down { color: var(--green); }
+.arrow.flat { color: var(--blue); font-size: 8px; }
+.cb-rate {
+  font-family: 'Syne', sans-serif;
+  font-size: 26px;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: -1px;
+}
+.cb-sub  { font-size: 10px; color: var(--dim); margin-top: 2px; }
+.cb-prev { font-size: 10px; color: var(--dimmer); margin-top: 4px; }
+.cb-asof { font-size: 9px; color: var(--dimmer); margin-top: 6px; }
+.spark {
+  width: 60px; height: 20px;
+  margin-top: 8px;
+  color: var(--purple);
+  opacity: 0.7;
+}
+
+/* ── Alerts ── */
+.alerts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+}
+.alert-card {
+  background: var(--card);
+  border-radius: 8px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-left-width: 4px;
+}
+.sev-critical { border-left-color: var(--red);   background: #1a080840; }
+.sev-high     { border-left-color: var(--amber);  background: #1a100040; }
+.sev-medium   { border-left-color: var(--blue);   background: #08101a40; }
+.alert-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.alert-cb {
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  color: #fff;
+  font-size: 13px;
+}
+.alert-sev {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  padding: 2px 8px;
+  border-radius: 3px;
+}
+.sev-critical .alert-sev { background: var(--red);   color: #fff; }
+.sev-high     .alert-sev { background: var(--amber); color: #000; }
+.sev-medium   .alert-sev { background: var(--blue);  color: #000; }
+.alert-event { font-size: 13px; color: var(--text); margin-bottom: 6px; line-height: 1.4; }
+.alert-date  { font-size: 11px; color: var(--dim); margin-bottom: 8px; }
+.alert-meta  { font-size: 11px; color: var(--dim); margin-bottom: 8px; display: flex; gap: 12px; }
+.forecast      { color: var(--blue); }
+.forecast-prev { color: var(--dimmer); }
+.alert-pairs, .alert-bots { font-size: 11px; margin-top: 4px; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; color: var(--dim); }
+.pair-tag {
+  background: #ffffff12;
+  border: 1px solid var(--border2);
+  border-radius: 3px;
+  padding: 1px 6px;
+  font-size: 10px;
+  color: var(--text);
+  font-weight: 700;
+}
+.bot-tag {
+  background: #ffffff08;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 1px 6px;
+  font-size: 10px;
+  color: var(--dim);
+}
+.no-alerts {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--green);
+  border-radius: 8px;
+  padding: 20px 24px;
+  color: var(--green);
+  font-size: 13px;
+}
+
+/* ── Calendar Table ── */
+.table-wrap { overflow-x: auto; }
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+th {
+  text-align: left;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--dim);
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  font-weight: 400;
+}
+td {
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--text);
+}
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: #ffffff04; }
+.row-highlight td { background: #a78bfa0a; }
+.row-highlight:hover td { background: #a78bfa12; }
+.event-title { max-width: 280px; }
+.country-badge {
+  background: var(--card2);
+  border: 1px solid var(--border2);
+  border-radius: 3px;
+  padding: 1px 6px;
+  font-size: 10px;
+  font-weight: 700;
+}
+.imp-high { color: var(--red);   font-weight: 700; font-size: 10px; }
+.imp-med  { color: var(--amber); font-weight: 700; font-size: 10px; }
+.actual-val { color: var(--green); font-weight: 700; }
+.pending    { color: var(--dimmer); font-style: italic; }
+.no-data    { color: var(--dimmer); text-align: center; padding: 24px; }
+
+/* ── Portfolio Map ── */
+.portfolio-table { background: var(--card); border-radius: 8px; overflow: hidden; border: 1px solid var(--border); }
+.risk-ok    td { }
+.risk-alert td { background: #ff3b3b08; }
+.pair-name { font-family: 'Syne', sans-serif; font-weight: 700; color: #fff; font-size: 14px; }
+.cb-badge {
+  display: inline-block;
+  background: #ffffff10;
+  border: 1px solid var(--border2);
+  border-radius: 3px;
+  padding: 1px 7px;
+  font-size: 10px;
+  font-weight: 700;
+  margin-right: 4px;
+  color: var(--blue);
+}
+.bot-badge {
+  display: inline-block;
+  border: 1px solid;
+  border-radius: 3px;
+  padding: 1px 7px;
+  font-size: 10px;
+  margin-right: 4px;
+  color: var(--text);
+  background: #ffffff06;
+}
+.risk-icon { font-size: 14px; text-align: center; }
+.risk-ok    .risk-icon { color: var(--green); }
+.risk-alert .risk-icon { color: var(--amber); }
+
+/* ── Footer ── */
+.footer {
+  padding: 24px 40px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: var(--dimmer);
+  font-size: 10px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.footer a { color: var(--dim); text-decoration: none; }
+.footer a:hover { color: var(--text); }
+
+@media (max-width: 600px) {
+  .header, .main, .footer { padding-left: 16px; padding-right: 16px; }
+  .cb-grid { grid-template-columns: repeat(2, 1fr); }
+}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="header-left">
+    <h1>MACRO <span>INTEL</span></h1>
+    <div class="header-sub">FX Bot Portfolio · Volatility Monitor · Central Bank Tracker</div>
+  </div>
+  <div class="header-right">
+    <div class="updated-label"><span class="live-dot"></span>Auto-refreshes hourly</div>
+    <div class="updated-time">Wednesday, March 11 2026 — 00:50 UTC</div>
+  </div>
+</header>
+
+<main class="main">
+
+  <!-- ── Section 1: CB Rates ── -->
+  <section>
+    <div class="section-title">Central Bank Policy Rates</div>
+    <div class="cb-grid">
+      
+        <div class="cb-card trend-flat">
+          <div class="cb-header">
+            <span class="cb-flag">🇺🇸</span>
+            <span class="cb-name">FED</span>
+            
+          </div>
+          <div class="cb-rate">N/A</div>
+          <div class="cb-sub">Fed Funds Rate</div>
+          <div class="cb-prev">Prev: –</div>
+          
+          <div class="cb-asof">as of </div>
+        </div>
+        <div class="cb-card trend-flat">
+          <div class="cb-header">
+            <span class="cb-flag">🇪🇺</span>
+            <span class="cb-name">ECB</span>
+            
+          </div>
+          <div class="cb-rate">N/A</div>
+          <div class="cb-sub">ECB Deposit Rate</div>
+          <div class="cb-prev">Prev: –</div>
+          
+          <div class="cb-asof">as of </div>
+        </div>
+        <div class="cb-card trend-flat">
+          <div class="cb-header">
+            <span class="cb-flag">🇬🇧</span>
+            <span class="cb-name">BOE</span>
+            
+          </div>
+          <div class="cb-rate">N/A</div>
+          <div class="cb-sub">BOE Base Rate</div>
+          <div class="cb-prev">Prev: –</div>
+          
+          <div class="cb-asof">as of </div>
+        </div>
+        <div class="cb-card trend-flat">
+          <div class="cb-header">
+            <span class="cb-flag">🇯🇵</span>
+            <span class="cb-name">BOJ</span>
+            
+          </div>
+          <div class="cb-rate">N/A</div>
+          <div class="cb-sub">BOJ Policy Rate</div>
+          <div class="cb-prev">Prev: –</div>
+          
+          <div class="cb-asof">as of </div>
+        </div>
+        <div class="cb-card trend-flat">
+          <div class="cb-header">
+            <span class="cb-flag">🇨🇦</span>
+            <span class="cb-name">BOC</span>
+            
+          </div>
+          <div class="cb-rate">N/A</div>
+          <div class="cb-sub">BOC Policy Rate</div>
+          <div class="cb-prev">Prev: –</div>
+          
+          <div class="cb-asof">as of </div>
+        </div>
+        <div class="cb-card trend-flat">
+          <div class="cb-header">
+            <span class="cb-flag">🇦🇺</span>
+            <span class="cb-name">RBA</span>
+            
+          </div>
+          <div class="cb-rate">N/A</div>
+          <div class="cb-sub">RBA Cash Rate</div>
+          <div class="cb-prev">Prev: –</div>
+          
+          <div class="cb-asof">as of </div>
+        </div>
+        <div class="cb-card trend-flat">
+          <div class="cb-header">
+            <span class="cb-flag">🇨🇭</span>
+            <span class="cb-name">SNB</span>
+            
+          </div>
+          <div class="cb-rate">N/A</div>
+          <div class="cb-sub">SNB Policy Rate</div>
+          <div class="cb-prev">Prev: –</div>
+          
+          <div class="cb-asof">as of </div>
+        </div>
+    </div>
+  </section>
+
+  <!-- ── Section 2: Alerts ── -->
+  <section>
+    <div class="section-title">⚠ Portfolio Volatility Alerts — Next 7 Days</div>
+    <div class="alerts-grid">
+      <div class="no-alerts">✓ No high-impact events in the next 7 days affecting your portfolio.</div>
+    </div>
+  </section>
+
+  <!-- ── Section 3: Portfolio Pair Map ── -->
+  <section>
+    <div class="section-title">Portfolio Pair Exposure Map</div>
+    <div class="portfolio-table">
+      <table>
+        <thead>
+          <tr>
+            <th>Pair</th>
+            <th>Central Banks</th>
+            <th>Active Bots</th>
+            <th>Alert</th>
+          </tr>
+        </thead>
+        <tbody>
+          
+        <tr class="risk-ok">
+          <td class="pair-name">AUDCAD</td>
+          <td><span class="cb-badge">RBA</span> <span class="cb-badge">BOC</span></td>
+          <td><span class="bot-badge" style="border-color:#2dd4bf">Hedge EA</span></td>
+          <td class="risk-icon">✓</td>
+        </tr>
+        <tr class="risk-ok">
+          <td class="pair-name">AUDUSD</td>
+          <td><span class="cb-badge">RBA</span> <span class="cb-badge">FED</span></td>
+          <td><span class="bot-badge" style="border-color:#22c55e">FX JetBot</span></td>
+          <td class="risk-icon">✓</td>
+        </tr>
+        <tr class="risk-ok">
+          <td class="pair-name">EURCHF</td>
+          <td><span class="cb-badge">ECB</span> <span class="cb-badge">SNB</span></td>
+          <td><span class="bot-badge" style="border-color:#f97316">Happy Power</span></td>
+          <td class="risk-icon">✓</td>
+        </tr>
+        <tr class="risk-ok">
+          <td class="pair-name">EURGBP</td>
+          <td><span class="cb-badge">ECB</span> <span class="cb-badge">BOE</span></td>
+          <td><span class="bot-badge" style="border-color:#a78bfa">FX InControl</span> <span class="bot-badge" style="border-color:#22c55e">FX JetBot</span></td>
+          <td class="risk-icon">✓</td>
+        </tr>
+        <tr class="risk-ok">
+          <td class="pair-name">EURJPY</td>
+          <td><span class="cb-badge">ECB</span> <span class="cb-badge">BOJ</span></td>
+          <td><span class="bot-badge" style="border-color:#a78bfa">FX InControl</span> <span class="bot-badge" style="border-color:#22c55e">FX JetBot</span></td>
+          <td class="risk-icon">✓</td>
+        </tr>
+        <tr class="risk-ok">
+          <td class="pair-name">EURUSD</td>
+          <td><span class="cb-badge">ECB</span> <span class="cb-badge">FED</span></td>
+          <td><span class="bot-badge" style="border-color:#22c55e">FX JetBot</span></td>
+          <td class="risk-icon">✓</td>
+        </tr>
+        <tr class="risk-ok">
+          <td class="pair-name">USDCAD</td>
+          <td><span class="cb-badge">FED</span> <span class="cb-badge">BOC</span></td>
+          <td><span class="bot-badge" style="border-color:#a78bfa">FX InControl</span> <span class="bot-badge" style="border-color:#22c55e">FX JetBot</span></td>
+          <td class="risk-icon">✓</td>
+        </tr>
+        <tr class="risk-ok">
+          <td class="pair-name">XAUUSD</td>
+          <td><span class="cb-badge">FED</span></td>
+          <td><span class="bot-badge" style="border-color:#fcd34d">Happy Gold</span></td>
+          <td class="risk-icon">✓</td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── Section 4: Event Calendar ── -->
+  <section>
+    <div class="section-title">High-Impact Economic Calendar — This Week</div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Time (UTC)</th>
+            <th>Country</th>
+            <th>Event</th>
+            <th>Impact</th>
+            <th>Forecast</th>
+            <th>Previous</th>
+            <th>Actual</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td colspan="8" class="no-data">No events loaded — check Forex Factory connectivity</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+</main>
+
+<footer class="footer">
+  <span>Data: <a href="https://fred.stlouisfed.org" target="_blank">FRED</a> · <a href="https://www.forexfactory.com" target="_blank">Forex Factory</a></span>
+  <span>Generated: Wednesday, March 11 2026 — 00:50 UTC</span>
+  <span>Portfolio: 5 bots · 8 pairs</span>
+</footer>
+
+</body>
+</html>

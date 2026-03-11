@@ -1,0 +1,37 @@
+name: Update Macro Dashboard
+
+on:
+  schedule:
+    # Runs daily at 06:00 UTC (before London open) and 13:00 UTC (before NY open)
+    - cron: '0 6 * * *'
+    - cron: '0 13 * * *'
+  workflow_dispatch:  # Allows manual trigger from GitHub Actions tab
+
+permissions:
+  contents: write
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Generate dashboard
+        env:
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+        run: python generate_dashboard.py
+
+      - name: Commit and push updated dashboard
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Actions"
+          git add docs/index.html
+          git diff --staged --quiet || git commit -m "chore: update dashboard $(date -u +'%Y-%m-%d %H:%M UTC')"
+          git push
