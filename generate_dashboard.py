@@ -88,9 +88,16 @@ def fetch_fred_series(series_id):
             return None
         values = [float(o["value"]) for o in obs[:6]]
         dates  = [o["date"] for o in obs[:6]]
-        current = values[0]
-        prev    = values[1] if len(values) > 1 else current
-        trend   = "hiking" if current > prev else ("cutting" if current < prev else "holding")
+        current  = values[0]
+        prev     = values[1] if len(values) > 1 else current
+        oldest   = values[-1] if len(values) > 1 else current
+        # Trend based on full 6-month range to avoid same-month noise
+        if current > oldest + 0.05:
+            trend = "hiking"
+        elif current < oldest - 0.05:
+            trend = "cutting"
+        else:
+            trend = "holding"
         history = list(zip(dates[::-1], values[::-1]))
         return {"current": current, "previous": prev, "trend": trend, "history": history, "date": dates[0]}
     except Exception as e:
@@ -957,8 +964,8 @@ body {{
   top: 0; left: 0; right: 0;
   height: 3px;
 }}
-.trend-up::before   {{ background: linear-gradient(90deg, var(--red), #ff6b6b); }}
-.trend-down::before {{ background: linear-gradient(90deg, var(--green), #4ade80); }}
+.trend-up::before   {{ background: linear-gradient(90deg, var(--green), #4ade80); }}
+.trend-down::before {{ background: linear-gradient(90deg, var(--red), #ff6b6b); }}
 .trend-flat::before {{ background: linear-gradient(90deg, var(--blue), #93c5fd); }}
 .cb-card:hover {{ border-color: var(--border2); transform: translateY(-1px); }}
 .cb-header {{
@@ -992,8 +999,8 @@ body {{
   line-height: 1;
 }}
 .arrow {{ font-size: 12px; line-height: 1; display: flex; align-items: center; }}
-.arrow.up   {{ color: var(--red); }}
-.arrow.down {{ color: var(--green); }}
+.arrow.up   {{ color: var(--green); }}
+.arrow.down {{ color: var(--red); }}
 .arrow.flat {{ color: var(--blue); font-size: 9px; }}
 .cb-rate {{
   font-family: 'IBM Plex Mono', monospace;
@@ -1015,8 +1022,8 @@ body {{
   margin-bottom: 2px;
   overflow: visible;
 }}
-.spark-up   {{ color: #ff6060; }}
-.spark-down {{ color: #4ade80; }}
+.spark-up   {{ color: #4ade80; }}
+.spark-down {{ color: #ff6060; }}
 .spark-flat {{ color: #93c5fd; }}
 
 /* ── Alerts ── */
