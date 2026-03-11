@@ -809,14 +809,17 @@ def generate_html(cb_rates, events, alerts, implied_moves):
             fill_cls  = {"hike": "imp-hike", "cut": "imp-cut", "hold": "imp-hold"}.get(dir_cls, "imp-hold")
             pct_cls   = {"hike": "hike", "cut": "cut", "hold": "hold"}.get(dir_cls, "hold")
             dir_label = {"hike": "▲ HIKE", "cut": "▼ CUT", "hold": "◆ HOLD"}.get(dir_cls, dir_cls.upper())
+            # For hold: show hold confidence (100 - move prob). For hike/cut: show move prob.
+            display_pct = (100 - pct) if dir_cls == "hold" else pct
+            display_pct = min(int(display_pct), 99)
             next_mtg  = imp.get("next_meeting", "")
             next_mtg_str = f"📅 {next_mtg} &nbsp;·&nbsp; " if next_mtg else ""
             source_str   = imp.get("fwd_label", "")
             implied_html += f"""
             <div class="implied-card">
               <div class="imp-cb">{cb}</div>
-              <div class="imp-label">Market-implied next move</div>
-              <span class="imp-pct {pct_cls}">{dir_label} &nbsp;{pct}%</span>
+              <div class="imp-label">Probability of next move</div>
+              <span class="imp-pct {pct_cls}">{dir_label} &nbsp;{display_pct}%</span>
               <div class="imp-prob-bar">
                 <div class="imp-prob-fill {fill_cls}" style="width:{pct}%"></div>
               </div>
