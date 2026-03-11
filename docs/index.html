@@ -127,8 +127,8 @@ body {
   top: 0; left: 0; right: 0;
   height: 3px;
 }
-.trend-up::before   { background: linear-gradient(90deg, var(--red), #ff6b6b); }
-.trend-down::before { background: linear-gradient(90deg, var(--green), #4ade80); }
+.trend-up::before   { background: linear-gradient(90deg, var(--green), #4ade80); }
+.trend-down::before { background: linear-gradient(90deg, var(--red), #ff6b6b); }
 .trend-flat::before { background: linear-gradient(90deg, var(--blue), #93c5fd); }
 .cb-card:hover { border-color: var(--border2); transform: translateY(-1px); }
 .cb-header {
@@ -162,8 +162,8 @@ body {
   line-height: 1;
 }
 .arrow { font-size: 12px; line-height: 1; display: flex; align-items: center; }
-.arrow.up   { color: var(--red); }
-.arrow.down { color: var(--green); }
+.arrow.up   { color: var(--green); }
+.arrow.down { color: var(--red); }
 .arrow.flat { color: var(--blue); font-size: 9px; }
 .cb-rate {
   font-family: 'IBM Plex Mono', monospace;
@@ -185,8 +185,8 @@ body {
   margin-bottom: 2px;
   overflow: visible;
 }
-.spark-up   { color: #ff6060; }
-.spark-down { color: #4ade80; }
+.spark-up   { color: #4ade80; }
+.spark-down { color: #ff6060; }
 .spark-flat { color: #93c5fd; }
 
 /* ── Alerts ── */
@@ -447,7 +447,7 @@ tr:hover td { background: #ffffff04; }
   </div>
   <div class="header-right">
     <div class="updated-label"><span class="live-dot"></span>Auto-refreshes hourly</div>
-    <div class="updated-time">Wednesday, March 11 2026 — 07:18 UTC</div>
+    <div class="updated-time">Wednesday, March 11 2026 — 07:28 UTC</div>
   </div>
 </header>
 
@@ -458,16 +458,16 @@ tr:hover td { background: #ffffff04; }
     <div class="section-title">Central Bank Policy Rates</div>
     <div class="cb-grid">
       
-        <div class="cb-card trend-flat">
+        <div class="cb-card trend-down">
           <div class="cb-header">
             <span class="cb-currency">USD</span>
             <span class="cb-name">FED</span>
-            <span class="arrow flat">◆</span>
+            <span class="arrow down">▼</span>
           </div>
           <div class="cb-rate">3.64%</div>
           <div class="cb-sub">Fed Funds Rate</div>
           <div class="cb-prev">Prev: 3.64%</div>
-          <svg class="spark spark-flat" viewBox="0 0 200 36" preserveAspectRatio="none"><polyline points="0,6 40,13 80,24 120,33 160,38 200,38" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <svg class="spark spark-down" viewBox="0 0 200 36" preserveAspectRatio="none"><polyline points="0,6 40,13 80,24 120,33 160,38 200,38" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
           <div class="cb-spark-label">6-month rate history</div>
           <div class="cb-asof">as of 2026-02-01</div>
         </div>
@@ -484,16 +484,16 @@ tr:hover td { background: #ffffff04; }
           <div class="cb-spark-label">6-month rate history</div>
           <div class="cb-asof">as of 2026-03-10</div>
         </div>
-        <div class="cb-card trend-down">
+        <div class="cb-card trend-flat">
           <div class="cb-header">
             <span class="cb-currency">GBP</span>
             <span class="cb-name">BOE</span>
-            <span class="arrow down">▼</span>
+            <span class="arrow flat">◆</span>
           </div>
           <div class="cb-rate">3.73%</div>
           <div class="cb-sub">BOE Base Rate</div>
           <div class="cb-prev">Prev: 3.73%</div>
-          <svg class="spark spark-down" viewBox="0 0 200 36" preserveAspectRatio="none"><polyline points="0,38 40,34 80,21 120,7 160,6 200,6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <svg class="spark spark-flat" viewBox="0 0 200 36" preserveAspectRatio="none"><polyline points="0,38 40,34 80,21 120,7 160,6 200,6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
           <div class="cb-spark-label">6-month rate history</div>
           <div class="cb-asof">as of 2026-03-06</div>
         </div>
@@ -1051,7 +1051,7 @@ tr:hover td { background: #ffffff04; }
 
 <footer class="footer">
   <span>Data: <a href="https://fred.stlouisfed.org" target="_blank">FRED</a> · <a href="https://www.forexfactory.com" target="_blank">Forex Factory</a> · <a href="https://rateprobability.com" target="_blank">rateprobability.com</a></span>
-  <span>Generated: Wednesday, March 11 2026 — 07:18 UTC</span>
+  <span>Generated: Wednesday, March 11 2026 — 07:28 UTC</span>
   <span>Portfolio: 4 bots · 6 pairs</span>
 </footer>
 
