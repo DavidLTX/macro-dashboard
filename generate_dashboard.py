@@ -74,115 +74,170 @@ def fetch_fred_series(series_id):
         print(f"  FRED error ({series_id}): {e}")
         return None
 
-def fetch_forex_factory_calendar():
-    """
-    Fetch Forex Factory calendar for this week + next week (~14 day window).
-    Tries multiple known URL patterns with fallback chain.
-    """
+def _parse_ff_xml(content, cb_map, seen):
+    """Parse raw Forex Factory XML bytes into event dicts. Returns list."""
     events = []
-    cb_map = {"US":"FED","EU":"ECB","GB":"BOE","JP":"BOJ","CA":"BOC","AU":"RBA","CH":"SNB","NZ":"RBNZ"}
-    seen   = set()
+    root = ET.fromstring(content)
+    channel = root.find("channel")
+    if channel is None:
+        return events
+    for item in channel.findall("item"):
+        title    = item.findtext("title", "").strip()
+        date_str = item.findtext("date", "").strip()
+        country  = item.findtext("country", "").upper().strip()
+        impact   = item.findtext("impact", "").lower().strip()
+        forecast = item.findtext("forecast", "").strip()
+        previous = item.findtext("previous", "").strip()
+        actual   = item.findtext("actual", "").strip()
 
-    # Primary + fallback URL pairs for each week
-    feed_candidates = [
-        # This week
-        "https://nfs.faireconomy.media/ff_calendar_thisweek.xml",
-        "https://cdn-nfs.faireconomy.media/ff_calendar_thisweek.xml",
-        # Next week
-        "https://nfs.faireconomy.media/ff_calendar_nextweek.xml",
-        "https://cdn-nfs.faireconomy.media/ff_calendar_nextweek.xml",
-    ]
+        if impact not in ("high", "medium"):
+            continue
+        key = f"{title}|{date_str}|{country}"
+        if key in seen:
+            continue
+        seen.add(key)
 
-    # Rotate through User-Agent strings to avoid blocks
+        dt = None
+        for fmt in ("%Y-%m-%dT%H:%M:%S%z", "%Y-%m-%dT%H:%M"):
+            try:
+                dt = datetime.strptime(date_str[:len(fmt)], fmt)
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=timezone.utc)
+                break
+            except Exception:
+                continue
+
+        cb = cb_map.get(country, country)
+        events.append({
+            "title": title, "date": dt,
+            "date_str": date_str[:10] if date_str else "",
+            "country": country, "cb": cb, "impact": impact,
+            "forecast": forecast, "previous": previous, "actual": actual,
+        })
+    return events
+
+
+def _make_request(url, extra_headers=None, timeout=15):
+    """Make a URL request with realistic browser headers."""
     headers = {
         "User-Agent": (
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
             "AppleWebKit/537.36 (KHTML, like Gecko) "
             "Chrome/122.0.0.0 Safari/537.36"
         ),
-        "Accept": "application/xml, text/xml, */*",
+        "Accept": "application/xml,text/xml,application/json,*/*;q=0.9",
         "Accept-Language": "en-US,en;q=0.9",
+        "Accept-Encoding": "gzip, deflate",
+        "Connection": "keep-alive",
         "Cache-Control": "no-cache",
+        "Pragma": "no-cache",
     }
+    if extra_headers:
+        headers.update(extra_headers)
+    req = urllib.request.Request(url, headers=headers)
+    return urllib.request.urlopen(req, timeout=timeout)
 
-    fetched_weeks = set()  # track "thisweek" / "nextweek" so we don't double-fetch
 
-    for url in feed_candidates:
-        week_key = "thisweek" if "thisweek" in url else "nextweek"
+def fetch_forex_factory_calendar():
+    """
+    Fetch 14-day economic calendar from multiple sources with fallback chain:
+    1. Forex Factory XML (primary + CDN mirror)
+    2. FRED known CB meeting dates (always available if FRED key works)
+    """
+    events = []
+    cb_map = {"US":"FED","EU":"ECB","GB":"BOE","JP":"BOJ","CA":"BOC","AU":"RBA","CH":"SNB","NZ":"RBNZ"}
+    seen   = set()
+
+    # ── Source 1: Forex Factory XML feeds ─────────────────────────────────────
+    ff_feeds = [
+        ("thisweek", "https://nfs.faireconomy.media/ff_calendar_thisweek.xml"),
+        ("thisweek", "https://cdn-nfs.faireconomy.media/ff_calendar_thisweek.xml"),
+        ("nextweek", "https://nfs.faireconomy.media/ff_calendar_nextweek.xml"),
+        ("nextweek", "https://cdn-nfs.faireconomy.media/ff_calendar_nextweek.xml"),
+    ]
+    fetched_weeks = set()
+
+    for week_key, url in ff_feeds:
         if week_key in fetched_weeks:
-            continue  # already got this week's data from a prior URL
-
+            continue
         try:
-            print(f"    Trying {url}")
-            req = urllib.request.Request(url, headers=headers)
-            with urllib.request.urlopen(req, timeout=15) as resp:
-                status = resp.status
-                content = resp.read()
-            print(f"    → HTTP {status}, {len(content)} bytes")
-
-            if not content.strip():
-                print(f"    → Empty response, skipping")
-                continue
-
-            root = ET.fromstring(content)
-            channel = root.find("channel")
-            if channel is None:
-                print(f"    → No <channel> element found in XML")
-                continue
-
-            items_found = 0
-            for item in channel.findall("item"):
-                title    = item.findtext("title", "").strip()
-                date_str = item.findtext("date", "").strip()
-                country  = item.findtext("country", "").upper().strip()
-                impact   = item.findtext("impact", "").lower().strip()
-                forecast = item.findtext("forecast", "").strip()
-                previous = item.findtext("previous", "").strip()
-                actual   = item.findtext("actual", "").strip()
-
-                if impact not in ("high", "medium"):
-                    continue
-
-                key = f"{title}|{date_str}|{country}"
-                if key in seen:
-                    continue
-                seen.add(key)
-
-                dt = None
-                for fmt in ("%Y-%m-%dT%H:%M:%S%z", "%Y-%m-%dT%H:%M:%Sz", "%Y-%m-%dT%H:%M"):
-                    try:
-                        dt = datetime.strptime(date_str[:len(fmt)+4], fmt)
-                        if dt.tzinfo is None:
-                            dt = dt.replace(tzinfo=timezone.utc)
-                        break
-                    except:
-                        continue
-
-                cb = cb_map.get(country, country)
-                events.append({
-                    "title": title, "date": dt,
-                    "date_str": date_str[:10] if date_str else "",
-                    "country": country, "cb": cb, "impact": impact,
-                    "forecast": forecast, "previous": previous, "actual": actual,
-                })
-                items_found += 1
-
-            print(f"    → Parsed {items_found} high/medium events from {week_key}")
-            fetched_weeks.add(week_key)
-
+            print(f"    FF XML: {url}")
+            with _make_request(url) as resp:
+                raw = resp.read()
+            # Handle gzip
+            if raw[:2] == b'\x1f\x8b':
+                import gzip
+                raw = gzip.decompress(raw)
+            parsed = _parse_ff_xml(raw, cb_map, seen)
+            if parsed:
+                events.extend(parsed)
+                fetched_weeks.add(week_key)
+                print(f"    → ✓ {len(parsed)} events ({week_key})")
+            else:
+                print(f"    → 0 events parsed — trying next URL")
         except urllib.error.HTTPError as e:
-            print(f"    → HTTP Error {e.code} {e.reason} — trying next URL")
+            print(f"    → HTTP {e.code} — trying next")
         except urllib.error.URLError as e:
-            print(f"    → URL Error: {e.reason} — trying next URL")
-        except ET.ParseError as e:
-            print(f"    → XML parse error: {e} — trying next URL")
+            print(f"    → URLError: {e.reason} — trying next")
         except Exception as e:
-            print(f"    → Unexpected error: {type(e).__name__}: {e}")
+            print(f"    → {type(e).__name__}: {e} — trying next")
+
+    # ── Source 2: FRED release calendar (fallback if FF failed) ───────────────
+    # FRED has a releases/dates endpoint listing upcoming data releases
+    if not events and FRED_API_KEY:
+        print("    FF failed — trying FRED release calendar as fallback...")
+        try:
+            today     = datetime.now().strftime("%Y-%m-%d")
+            two_weeks = (datetime.now() + timedelta(days=14)).strftime("%Y-%m-%d")
+            url = (
+                f"https://api.stlouisfed.org/fred/releases/dates"
+                f"?api_key={FRED_API_KEY}&file_type=json"
+                f"&realtime_start={today}&realtime_end={two_weeks}"
+                f"&include_release_dates_with_no_data=false&limit=100"
+            )
+            with _make_request(url) as resp:
+                data = json.loads(resp.read())
+
+            # Map FRED release names to central banks
+            release_cb_map = {
+                "federal open market committee": ("FED",  "US", "FOMC Rate Decision"),
+                "fomc":                          ("FED",  "US", "FOMC Rate Decision"),
+                "consumer price index":          ("FED",  "US", "CPI"),
+                "employment situation":          ("FED",  "US", "NFP / Employment"),
+                "ecb":                           ("ECB",  "EU", "ECB Policy Decision"),
+                "bank of england":               ("BOE",  "GB", "BOE Rate Decision"),
+                "bank of japan":                 ("BOJ",  "JP", "BOJ Rate Decision"),
+                "bank of canada":                ("BOC",  "CA", "BOC Rate Decision"),
+                "reserve bank of australia":     ("RBA",  "AU", "RBA Rate Decision"),
+            }
+
+            for rel in data.get("release_dates", []):
+                name     = rel.get("release_name", "").lower()
+                date_str = rel.get("date", "")
+                for keyword, (cb, country, label) in release_cb_map.items():
+                    if keyword in name:
+                        key = f"{label}|{date_str}|{country}"
+                        if key in seen:
+                            continue
+                        seen.add(key)
+                        try:
+                            dt = datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+                        except Exception:
+                            dt = None
+                        events.append({
+                            "title": label, "date": dt, "date_str": date_str,
+                            "country": country, "cb": cb, "impact": "high",
+                            "forecast": "", "previous": "", "actual": "",
+                        })
+                        break
+            print(f"    → FRED fallback: {len(events)} events")
+        except Exception as e:
+            print(f"    → FRED fallback failed: {e}")
 
     if not events:
-        print("  ⚠ No events loaded from any Forex Factory feed")
+        print("  ⚠ All calendar sources failed")
     else:
-        print(f"  ✓ Total events loaded: {len(events)}")
+        print(f"  ✓ Total calendar events: {len(events)}")
 
     return sorted(events, key=lambda x: x["date"] or datetime.min.replace(tzinfo=timezone.utc))
 
