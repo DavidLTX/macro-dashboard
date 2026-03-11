@@ -821,7 +821,7 @@ def generate_html(cb_rates, events, alerts, implied_moves):
               <div class="imp-label">Probability of next move</div>
               <span class="imp-pct {pct_cls}">{dir_label} &nbsp;{display_pct}%</span>
               <div class="imp-prob-bar">
-                <div class="imp-prob-fill {fill_cls}" style="width:{pct}%"></div>
+                <div class="imp-prob-fill {fill_cls}" style="width:{display_pct}%"></div>
               </div>
               <div class="imp-rates">Current: {imp['current_rate']}% → Fwd: {imp['forward_rate']}% ({imp['spread_bp']:+.1f}bp)</div>
               <div class="imp-source">{next_mtg_str}{source_str}</div>
