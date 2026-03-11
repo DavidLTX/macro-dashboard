@@ -40,7 +40,7 @@ FRED_SERIES = {
     "BOE": {"id": "IUDSOIA",         "name": "BOE SONIA Rate",   "currency": "GBP", "flag": "🇬🇧"},
     "BOJ": {"id": "IRSTCB01JPM156N", "name": "BOJ Policy Rate",  "currency": "JPY", "flag": "🇯🇵"},
     "BOC": {"id": "IRSTCB01CAM156N", "name": "BOC Policy Rate",  "currency": "CAD", "flag": "🇨🇦"},
-    "RBA": {"id": "IRSTCB01AUM156N", "name": "RBA Cash Rate",    "currency": "AUD", "flag": "🇦🇺"},
+    "RBA": {"id": "RBAAORD",         "name": "RBA Cash Rate",    "currency": "AUD", "flag": "🇦🇺"},
 }
 
 FRED_API_KEY = os.environ.get("FRED_API_KEY", "")
@@ -74,46 +74,90 @@ def fetch_fred_series(series_id):
         print(f"  FRED error ({series_id}): {e}")
         return None
 
-def _parse_ff_xml(content, cb_map, seen):
-    """Parse raw Forex Factory XML bytes into event dicts. Returns list."""
+def _parse_ff_xml(content, seen):
+    """
+    Parse Forex Factory XML. FF uses <weeklyevents><event> structure (not RSS).
+    Dates are MM-DD-YYYY, times are like '7:00am', impact is 'High'/'Medium' etc.
+    Country codes are currency codes: USD, EUR, GBP, JPY, CAD, AUD, CHF, NZD.
+    """
     events = []
-    root = ET.fromstring(content)
-    channel = root.find("channel")
-    if channel is None:
-        return events
-    for item in channel.findall("item"):
-        title    = item.findtext("title", "").strip()
-        date_str = item.findtext("date", "").strip()
-        country  = item.findtext("country", "").upper().strip()
-        impact   = item.findtext("impact", "").lower().strip()
-        forecast = item.findtext("forecast", "").strip()
-        previous = item.findtext("previous", "").strip()
-        actual   = item.findtext("actual", "").strip()
 
-        if impact not in ("high", "medium"):
+    # FF uses windows-1252 encoding — decode accordingly
+    if isinstance(content, bytes):
+        try:
+            text = content.decode("windows-1252")
+        except Exception:
+            text = content.decode("utf-8", errors="replace")
+        # Re-encode as UTF-8 for ElementTree
+        content = text.encode("utf-8")
+        # Fix the XML declaration to say utf-8
+        content = content.replace(
+            b'<?xml version="1.0" encoding="windows-1252"?>',
+            b'<?xml version="1.0" encoding="utf-8"?>'
+        )
+
+    root = ET.fromstring(content)
+
+    # Map FF currency codes → our CB identifiers
+    currency_cb_map = {
+        "USD": ("FED", "US"),
+        "EUR": ("ECB", "EU"),
+        "GBP": ("BOE", "GB"),
+        "JPY": ("BOJ", "JP"),
+        "CAD": ("BOC", "CA"),
+        "AUD": ("RBA", "AU"),
+        "CHF": ("SNB", "CH"),
+        "NZD": ("RBNZ", "NZ"),
+    }
+
+    # FF impact levels to normalise
+    high_impact   = {"high", "holiday"}   # holiday = market closed = relevant
+    medium_impact = {"medium"}
+
+    for event in root.findall("event"):
+        title    = (event.findtext("title")   or "").strip()
+        country  = (event.findtext("country") or "").strip().upper()
+        date_str = (event.findtext("date")    or "").strip()
+        time_str = (event.findtext("time")    or "").strip()
+        impact   = (event.findtext("impact")  or "").strip().lower()
+        forecast = (event.findtext("forecast") or "").strip()
+        previous = (event.findtext("previous") or "").strip()
+        actual   = (event.findtext("actual")   or "").strip()
+
+        if impact not in high_impact and impact not in medium_impact:
             continue
+
         key = f"{title}|{date_str}|{country}"
         if key in seen:
             continue
         seen.add(key)
 
+        # Parse date: MM-DD-YYYY + time like "2:00pm"
         dt = None
-        for fmt in ("%Y-%m-%dT%H:%M:%S%z", "%Y-%m-%dT%H:%M"):
+        try:
+            # Combine date + time
+            time_clean = time_str.replace("\u200b", "").strip()  # remove zero-width spaces
+            if time_clean and time_clean.lower() not in ("all day", "tentative", ""):
+                dt = datetime.strptime(f"{date_str} {time_clean}", "%m-%d-%Y %I:%M%p")
+            else:
+                dt = datetime.strptime(date_str, "%m-%d-%Y")
+            dt = dt.replace(tzinfo=timezone.utc)
+        except Exception:
             try:
-                dt = datetime.strptime(date_str[:len(fmt)], fmt)
-                if dt.tzinfo is None:
-                    dt = dt.replace(tzinfo=timezone.utc)
-                break
+                dt = datetime.strptime(date_str, "%m-%d-%Y").replace(tzinfo=timezone.utc)
             except Exception:
-                continue
+                dt = None
 
-        cb = cb_map.get(country, country)
+        cb, country_code = currency_cb_map.get(country, (country, country[:2]))
+        impact_norm = "high" if impact in high_impact else "medium"
+
         events.append({
             "title": title, "date": dt,
-            "date_str": date_str[:10] if date_str else "",
-            "country": country, "cb": cb, "impact": impact,
+            "date_str": dt.strftime("%Y-%m-%d") if dt else date_str,
+            "country": country_code, "cb": cb, "impact": impact_norm,
             "forecast": forecast, "previous": previous, "actual": actual,
         })
+
     return events
 
 
@@ -169,7 +213,7 @@ def fetch_forex_factory_calendar():
                 import gzip
                 raw = gzip.decompress(raw)
                 print(f"    → gzip decompressed: {len(raw)} bytes")
-            parsed = _parse_ff_xml(raw, cb_map, seen)
+            parsed = _parse_ff_xml(raw, seen)
             if parsed:
                 events.extend(parsed)
                 fetched_weeks.add(week_key)
