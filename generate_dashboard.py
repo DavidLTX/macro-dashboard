@@ -100,99 +100,135 @@ def fetch_fred_series(series_id):
 
 def fetch_rateprobability(cb_key):
     """
-    Scrape rateprobability.com for a given CB (server-rendered HTML, no JS needed).
-    Returns dict with current_rate, next_meeting_date, next_meeting_prob,
-    next_meeting_direction, meetings list.
+    Fetch rate probabilities from rateprobability.com JSON API.
+    The pages are JS-rendered SPAs — we call the underlying API endpoint directly.
+    Endpoint: /api/{cb}/latest — returns JSON with current rate + per-meeting path.
     cb_key: fed, ecb, boj, boe, boc, rba
     """
-    import re
-    url = f"https://rateprobability.com/{cb_key.lower()}"
+    import re, json as _json
+    url = f"https://rateprobability.com/api/{cb_key.lower()}/latest"
     try:
-        with _make_request(url, timeout=15) as resp:
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36",
+            "Accept": "application/json, */*",
+            "Accept-Encoding": "identity",
+            "Referer": f"https://rateprobability.com/{cb_key.lower()}",
+            "Origin": "https://rateprobability.com",
+        }
+        req = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(req, timeout=15) as resp:
             raw = resp.read()
         if raw[:2] == b'\x1f\x8b':
             import gzip
             raw = gzip.decompress(raw)
-        html = raw.decode("utf-8", errors="replace")
+        data = _json.loads(raw)
+        print(f"  rateprobability.com API ({cb_key}): {len(raw)} bytes, keys={list(data.keys())[:6]}")
     except Exception as e:
-        print(f"  rateprobability.com ({cb_key}): fetch error — {e}")
+        print(f"  rateprobability.com ({cb_key}): API error — {e}")
         return None
 
     result = {"cb": cb_key.upper(), "source": "rateprobability.com", "meetings": []}
 
-    # Current rate — several label patterns across different CB pages
-    rate_match = re.search(
-        r'(?:Target(?:[^:]{0,30})?:|Overnight Rate Target:|Cash Rate Target:|Current Rate)[^\d]*([\d.]+)%',
-        html, re.IGNORECASE
-    )
-    if rate_match:
-        result["current_rate"] = float(rate_match.group(1))
-    else:
-        print(f"  rateprobability.com ({cb_key}): could not parse current rate")
+    # Extract current rate — try common field names
+    current_rate = None
+    for key in ("currentRate", "current_rate", "policyRate", "policy_rate", "rate", "targetRate"):
+        if key in data and data[key] is not None:
+            try:
+                current_rate = float(data[key])
+                break
+            except (TypeError, ValueError):
+                pass
+    # Fallback: look inside nested structure
+    if current_rate is None:
+        for key in ("meta", "info", "current", "summary"):
+            if isinstance(data.get(key), dict):
+                for subkey in ("rate", "currentRate", "policyRate", "targetRate"):
+                    try:
+                        current_rate = float(data[key][subkey])
+                        break
+                    except (TypeError, ValueError, KeyError):
+                        pass
+            if current_rate is not None:
+                break
+
+    if current_rate is None:
+        print(f"  rateprobability.com ({cb_key}): could not find current rate in JSON: {str(data)[:300]}")
+        return None
+    result["current_rate"] = current_rate
+
+    # Extract meeting path — try common array field names
+    meetings_data = None
+    for key in ("meetings", "path", "data", "rows", "schedule", "probabilities", "results"):
+        if isinstance(data.get(key), list) and data[key]:
+            meetings_data = data[key]
+            break
+
+    if not meetings_data:
+        print(f"  rateprobability.com ({cb_key}): no meetings array in JSON. Keys: {list(data.keys())}")
         return None
 
-    # Parse meeting table — handles both raw HTML <tr><td> and markdown pipe formats
     now = datetime.now(timezone.utc)
-
-    def _parse_row(date_col, implied_col, prob_col, delta_col):
-        # Strip HTML tags from cells
-        def strip_tags(s):
-            return re.sub(r'<[^>]+>', '', s).strip()
-        date_col, implied_col, prob_col, delta_col = (
-            strip_tags(date_col), strip_tags(implied_col),
-            strip_tags(prob_col), strip_tags(delta_col)
-        )
-        date_match    = re.search(r'([A-Za-z]+ \d+,\s*\d{4})', date_col)
-        implied_match = re.search(r'([\d.]+)%', implied_col)
-        prob_match    = re.search(r'([\d.]+)%', prob_col)
-        delta_match   = re.search(r'(-?[\d.]+)', delta_col.replace('(', '-').replace(')', ''))
-        if not all([date_match, implied_match, prob_match, delta_match]):
-            return None
-        try:
-            dt = datetime.strptime(date_match.group(1).strip(), "%b %d, %Y").replace(tzinfo=timezone.utc)
-        except Exception:
-            return None
-        if dt < now - timedelta(days=1):
-            return None
-        is_cut_prob = '(' in prob_col
-        delta_bp    = float(delta_match.group(1))
-        direction   = "hold" if abs(delta_bp) < 1.5 else (
-                      "cut"  if (delta_bp < 0 or is_cut_prob) else "hike")
-        return {
-            "date": dt, "date_str": dt.strftime("%b %d, %Y"),
-            "implied_rate": float(implied_match.group(1)),
-            "probability":  float(prob_match.group(1)),
-            "direction": direction, "delta_bp": delta_bp,
-        }
-
-    # Try HTML table format first (<tr><td>)
-    html_rows = re.findall(r'<tr>(.*?)</tr>', html, re.DOTALL)
-    for row in html_rows:
-        cells = re.findall(r'<td>(.*?)</td>', row, re.DOTALL)
-        if len(cells) < 5:
+    for row in meetings_data:
+        if not isinstance(row, dict):
             continue
-        parsed = _parse_row(cells[0], cells[1], cells[2], cells[4])
-        if parsed:
-            result["meetings"].append(parsed)
-
-    # Fallback: markdown pipe table (used when fetched via web proxy / Claude tool)
-    if not result["meetings"]:
-        for line in html.splitlines():
-            line = line.strip()
-            if not line.startswith('|'):
+        # Date field
+        date_val = None
+        for k in ("date", "meetingDate", "meeting_date", "decisionDate", "Date"):
+            if k in row and row[k]:
+                date_val = str(row[k])
+                break
+        if not date_val:
+            continue
+        # Parse date
+        dt = None
+        for fmt in ("%Y-%m-%d", "%b %d, %Y", "%d/%m/%Y", "%Y-%m-%dT%H:%M:%S"):
+            try:
+                dt = datetime.strptime(date_val[:len(fmt)], fmt).replace(tzinfo=timezone.utc)
+                break
+            except ValueError:
                 continue
-            cols = [c.strip() for c in line.split('|')]
-            cols = [c for c in cols if c]
-            if len(cols) < 5:
-                continue
-            parsed = _parse_row(cols[0], cols[1], cols[2], cols[4] if len(cols) > 4 else cols[3])
-            if parsed:
-                result["meetings"].append(parsed)
+        if not dt or dt < now - timedelta(days=1):
+            continue
+
+        # Implied rate
+        implied_rate = None
+        for k in ("impliedRate", "implied_rate", "rate", "impliedPostMeeting", "postMeetingRate"):
+            try:
+                implied_rate = float(row[k])
+                break
+            except (TypeError, ValueError, KeyError):
+                pass
+
+        # Probability
+        prob = None
+        for k in ("probability", "prob", "hikeProbability", "cutProbability", "moveProbability", "moveProb"):
+            try:
+                prob = abs(float(row[k]))
+                break
+            except (TypeError, ValueError, KeyError):
+                pass
+
+        # Delta bp
+        delta_bp = None
+        for k in ("deltaBp", "delta_bp", "delta", "bpChange", "cumulativeDelta", "changeBp"):
+            try:
+                delta_bp = float(row[k])
+                break
+            except (TypeError, ValueError, KeyError):
+                pass
+
+        if implied_rate is None or prob is None or delta_bp is None:
+            continue
+
+        direction = "hold" if abs(delta_bp) < 1.5 else ("cut" if delta_bp < 0 else "hike")
+        result["meetings"].append({
+            "date": dt, "date_str": dt.strftime("%b %d, %Y"),
+            "implied_rate": implied_rate, "probability": prob,
+            "direction": direction, "delta_bp": delta_bp,
+        })
 
     if not result["meetings"]:
-        # Dump first 2000 chars of HTML for debugging
-        print(f"  rateprobability.com ({cb_key}): no future meetings parsed")
-        print(f"  RP HTML preview: {html[:1500]!r}")
+        print(f"  rateprobability.com ({cb_key}): no future meetings in response. Sample row: {meetings_data[0] if meetings_data else None}")
         return None
 
     next_mtg = result["meetings"][0]
