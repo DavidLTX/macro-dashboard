@@ -14,8 +14,8 @@ from xml.etree import ElementTree as ET
 
 # ── Portfolio Configuration ────────────────────────────────────────────────────
 PORTFOLIO = {
-    "Control": {"pairs": ["EURJPY", "USDCAD", "EURGBP"], "strategy": "Fibonacci Grid", "color": "#a78bfa"},
-    "Jet":     {"pairs": ["EURUSD", "EURJPY", "USDCAD", "EURGBP"], "strategy": "Dual-Dir Grid", "color": "#22c55e"},
+    "Control": {"pairs": ["EURJPY", "USDCAD"], "strategy": "Fibonacci Grid", "color": "#a78bfa"},
+    "Jet":     {"pairs": ["EURUSD", "EURGBP"], "strategy": "Dual-Dir Grid", "color": "#22c55e"},
     "HGold":   {"pairs": ["XAUUSD"], "strategy": "Fixed-Lot Scalper", "color": "#fcd34d"},
     "Hedge":   {"pairs": ["AUDCAD"], "strategy": "Dual-Dir Grid", "color": "#2dd4bf"},
 }
@@ -339,7 +339,7 @@ def generate_html(cb_rates, events, alerts, outlook, implied_moves):
         cb_cards_html += f"""
         <div class="cb-card {trend_cls}">
           <div class="cb-header">
-            <span class="cb-flag">{info['flag']}</span>
+            <span class="cb-currency">{info['currency']}</span>
             <span class="cb-name">{cb}</span>
             {arrow}
           </div>
@@ -520,8 +520,8 @@ def generate_html(cb_rates, events, alerts, outlook, implied_moves):
   --blue:     #60a5fa;
   --purple:   #a78bfa;
   --text:     #ddddf0;
-  --dim:      #7777aa;
-  --dimmer:   #44445a;
+  --dim:      #9999cc;
+  --dimmer:   #6666aa;
 }}
 *, *::before, *::after {{ box-sizing: border-box; margin: 0; padding: 0; }}
 html {{ scroll-behavior: smooth; }}
@@ -568,7 +568,7 @@ body {{
 }}
 .updated-label {{
   font-size: 11px;
-  color: var(--dimmer);
+  color: #8888bb;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   font-family: 'IBM Plex Mono', monospace;
@@ -638,11 +638,19 @@ body {{
   margin-bottom: 12px;
   line-height: 1;
 }}
-.cb-flag {{
-  font-size: 18px;
+.cb-currency {{
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  color: #7070a0;
+  letter-spacing: 0.08em;
   line-height: 1;
   display: flex;
   align-items: center;
+  padding: 2px 5px;
+  background: #ffffff0a;
+  border: 1px solid #2a2a45;
+  border-radius: 3px;
 }}
 .cb-name {{
   font-family: 'Barlow', sans-serif;
@@ -665,9 +673,9 @@ body {{
   letter-spacing: -1px;
   line-height: 1;
 }}
-.cb-sub  {{ font-size: 12px; color: var(--dim); margin-top: 6px; font-weight: 500; }}
-.cb-prev {{ font-size: 12px; color: var(--dimmer); margin-top: 4px; font-family: 'IBM Plex Mono', monospace; }}
-.cb-asof {{ font-size: 10px; color: var(--dimmer); margin-top: 8px; font-family: 'IBM Plex Mono', monospace; }}
+.cb-sub  {{ font-size: 12px; color: #b0b0d8; margin-top: 6px; font-weight: 600; }}
+.cb-prev {{ font-size: 12px; color: #a0a0cc; margin-top: 4px; font-family: 'IBM Plex Mono', monospace; }}
+.cb-asof {{ font-size: 11px; color: #8888bb; margin-top: 8px; font-family: 'IBM Plex Mono', monospace; }}
 .spark {{
   display: block;
   width: 100%;
@@ -721,7 +729,7 @@ body {{
 .alert-date  {{ font-size: 12px; color: var(--dim); margin-bottom: 8px; font-family: 'IBM Plex Mono', monospace; }}
 .alert-meta  {{ font-size: 11px; color: var(--dim); margin-bottom: 8px; display: flex; gap: 12px; }}
 .forecast      {{ color: var(--blue); }}
-.forecast-prev {{ color: var(--dimmer); }}
+.forecast-prev {{ color: #9898c8; }}
 .alert-pairs, .alert-bots {{ font-size: 11px; margin-top: 4px; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; color: var(--dim); }}
 .pair-tag {{
   background: #ffffff12;
@@ -836,7 +844,7 @@ tr:hover td {{ background: #ffffff04; }}
   display: flex;
   justify-content: space-between;
   align-items: center;
-  color: var(--dimmer);
+  color: #8888bb;
   font-size: 11px;
   flex-wrap: wrap;
   gap: 8px;
@@ -916,12 +924,12 @@ tr:hover td {{ background: #ffffff04; }}
 .imp-hike {{ background: linear-gradient(90deg, #ff3b3b, #ff6b6b); }}
 .imp-cut  {{ background: linear-gradient(90deg, #22c55e, #4ade80); }}
 .imp-hold {{ background: linear-gradient(90deg, #60a5fa, #93c5fd); }}
-.imp-label {{ font-size: 12px; color: var(--dim); }}
-.imp-pct   {{ font-family: 'IBM Plex Mono', monospace; font-size: 13px; font-weight: 700; }}
+.imp-label {{ font-size: 12px; color: #b0b0d8; font-weight: 500; }}
+.imp-pct   {{ font-family: 'IBM Plex Mono', monospace; font-size: 15px; font-weight: 700; }}
 .imp-pct.hike {{ color: var(--red); }}
 .imp-pct.cut  {{ color: var(--green); }}
 .imp-pct.hold {{ color: var(--blue); }}
-.imp-rates {{ font-size: 11px; color: var(--dimmer); font-family: 'IBM Plex Mono', monospace; }}
+.imp-rates {{ font-size: 11px; color: #9898c8; font-family: 'IBM Plex Mono', monospace; }}
 .no-implied {{ color: var(--dimmer); font-size: 12px; padding: 12px 0; font-style: italic; }}
 </style>
 </head>
