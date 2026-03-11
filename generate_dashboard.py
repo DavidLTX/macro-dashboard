@@ -35,12 +35,12 @@ PAIR_CB_MAP = {
 
 # FRED series for central bank policy rates
 FRED_SERIES = {
-    "FED": {"id": "FEDFUNDS",        "name": "Fed Funds Rate",   "currency": "USD", "flag": "🇺🇸"},
-    "ECB": {"id": "ECBDFR",          "name": "ECB Deposit Rate", "currency": "EUR", "flag": "🇪🇺"},
-    "BOE": {"id": "IUDSOIA",         "name": "BOE SONIA Rate",   "currency": "GBP", "flag": "🇬🇧"},
-    "BOJ": {"id": "IRSTCB01JPM156N", "name": "BOJ Policy Rate",  "currency": "JPY", "flag": "🇯🇵"},
-    "BOC": {"id": "IRSTCB01CAM156N", "name": "BOC Policy Rate",  "currency": "CAD", "flag": "🇨🇦"},
-    "RBA": {"id": "RBAAORD",         "name": "RBA Cash Rate",    "currency": "AUD", "flag": "🇦🇺"},
+    "FED": {"id": "FEDFUNDS",   "name": "Fed Funds Rate",    "currency": "USD", "flag": "🇺🇸"},
+    "ECB": {"id": "ECBDFR",     "name": "ECB Deposit Rate",  "currency": "EUR", "flag": "🇪🇺"},
+    "BOE": {"id": "IUDSOIA",    "name": "BOE SONIA Rate",    "currency": "GBP", "flag": "🇬🇧"},
+    "BOJ": {"id": "INTDSRJPM193N", "name": "BOJ Policy Rate",   "currency": "JPY", "flag": "🇯🇵"},
+    "BOC": {"id": "INTDSRCAM193N", "name": "BOC Policy Rate",   "currency": "CAD", "flag": "🇨🇦"},
+    "RBA": {"id": "INTDSRAUM193N", "name": "RBA Cash Rate",     "currency": "AUD", "flag": "🇦🇺"},
 }
 
 FRED_API_KEY = os.environ.get("FRED_API_KEY", "")
@@ -184,19 +184,25 @@ def _make_request(url, extra_headers=None, timeout=15):
 
 def fetch_forex_factory_calendar():
     """
-    Fetch 14-day economic calendar from multiple sources with fallback chain:
-    1. Forex Factory XML (primary + CDN mirror)
-    2. FRED known CB meeting dates (always available if FRED key works)
+    Fetch 14-day economic calendar. FF only serves thisweek XML but includes
+    dates up to ~10 days out depending on when in the week you fetch.
+    We accept all events within 14 days regardless of which feed they came from.
+    Fallback: FRED release calendar if FF is unreachable.
     """
     events = []
-    cb_map = {"US":"FED","EU":"ECB","GB":"BOE","JP":"BOJ","CA":"BOC","AU":"RBA","CH":"SNB","NZ":"RBNZ"}
     seen   = set()
+    now    = datetime.now(timezone.utc)
+    cutoff = now + timedelta(days=14)
 
-    # ── Source 1: Forex Factory XML feeds ─────────────────────────────────────
+    # ── Source 1: Forex Factory XML ────────────────────────────────────────────
     ff_feeds = [
         ("thisweek", "https://nfs.faireconomy.media/ff_calendar_thisweek.xml"),
         ("thisweek", "https://cdn-nfs.faireconomy.media/ff_calendar_thisweek.xml"),
+        # nextweek — try multiple URL patterns; FF changes these occasionally
         ("nextweek", "https://nfs.faireconomy.media/ff_calendar_nextweek.xml"),
+        ("nextweek", "https://cdn-nfs.faireconomy.media/ff_calendar_nextweek.xml"),
+        ("nextweek", "https://nfs.faireconomy.media/ff_calendar_next_week.xml"),
+        ("nextweek", "https://nfs.faireconomy.media/ff_calendar_week2.xml"),
     ]
     fetched_weeks = set()
 
@@ -207,59 +213,63 @@ def fetch_forex_factory_calendar():
             print(f"    FF XML: {url}")
             with _make_request(url) as resp:
                 raw = resp.read()
-            print(f"    → {len(raw)} bytes received, first 60: {raw[:60]}")
-            # Handle gzip just in case server ignores Accept-Encoding: identity
+            print(f"    → {len(raw)} bytes")
             if raw[:2] == b'\x1f\x8b':
                 import gzip
                 raw = gzip.decompress(raw)
-                print(f"    → gzip decompressed: {len(raw)} bytes")
             parsed = _parse_ff_xml(raw, seen)
             if parsed:
                 events.extend(parsed)
                 fetched_weeks.add(week_key)
                 print(f"    → ✓ {len(parsed)} events ({week_key})")
             else:
-                # Print first 500 chars of XML to help debug structure
-                print(f"    → 0 events parsed. XML preview: {raw[:500]}")
+                print(f"    → 0 events parsed. XML preview: {raw[:300]}")
         except urllib.error.HTTPError as e:
-            print(f"    → HTTP {e.code} — trying next")
+            if e.code == 404:
+                print(f"    → 404 (not available yet this cycle)")
+            else:
+                print(f"    → HTTP {e.code} — skipping")
         except urllib.error.URLError as e:
-            print(f"    → URLError: {e.reason} — trying next")
+            print(f"    → URLError: {e.reason} — skipping")
         except Exception as e:
-            print(f"    → {type(e).__name__}: {e} — trying next")
+            print(f"    → {type(e).__name__}: {e}")
 
-    # ── Source 2: FRED release calendar (fallback if FF failed) ───────────────
+    # Filter to 14-day window — FF thisweek XML often contains dates beyond Sunday
+    before = len(events)
+    events = [e for e in events if e["date"] and e["date"] <= cutoff]
+    if before != len(events):
+        print(f"    → Trimmed to 14-day window: {len(events)} events (was {before})")
+
+    # ── Source 2: FRED release calendar fallback ───────────────────────────────
     if not events and FRED_API_KEY:
-        print("    FF failed — trying FRED release calendar as fallback...")
+        print("    FF unavailable — trying FRED release calendar...")
         try:
-            today     = datetime.now().strftime("%Y-%m-%d")
-            two_weeks = (datetime.now() + timedelta(days=14)).strftime("%Y-%m-%d")
+            today     = now.strftime("%Y-%m-%d")
+            two_weeks = cutoff.strftime("%Y-%m-%d")
             url = (
                 f"https://api.stlouisfed.org/fred/releases/dates"
                 f"?api_key={FRED_API_KEY}&file_type=json"
                 f"&realtime_start={today}&realtime_end={two_weeks}"
-                f"&include_release_dates_with_no_data=false&limit=100"
+                f"&include_release_dates_with_no_data=false&limit=200"
             )
             with _make_request(url) as resp:
                 raw = resp.read()
-            # Decompress if gzip
             if raw[:2] == b'\x1f\x8b':
                 import gzip
                 raw = gzip.decompress(raw)
             data = json.loads(raw)
 
             release_cb_map = {
-                "federal open market committee": ("FED",  "US", "FOMC Rate Decision"),
-                "fomc":                          ("FED",  "US", "FOMC Rate Decision"),
-                "consumer price index":          ("FED",  "US", "CPI"),
-                "employment situation":          ("FED",  "US", "NFP / Employment"),
-                "ecb":                           ("ECB",  "EU", "ECB Policy Decision"),
-                "bank of england":               ("BOE",  "GB", "BOE Rate Decision"),
-                "bank of japan":                 ("BOJ",  "JP", "BOJ Rate Decision"),
-                "bank of canada":                ("BOC",  "CA", "BOC Rate Decision"),
-                "reserve bank of australia":     ("RBA",  "AU", "RBA Rate Decision"),
+                "federal open market committee": ("FED", "US", "FOMC Rate Decision"),
+                "fomc":                          ("FED", "US", "FOMC Rate Decision"),
+                "consumer price index":          ("FED", "US", "CPI"),
+                "employment situation":          ("FED", "US", "NFP / Employment"),
+                "ecb":                           ("ECB", "EU", "ECB Policy Decision"),
+                "bank of england":               ("BOE", "GB", "BOE Rate Decision"),
+                "bank of japan":                 ("BOJ", "JP", "BOJ Rate Decision"),
+                "bank of canada":                ("BOC", "CA", "BOC Rate Decision"),
+                "reserve bank of australia":     ("RBA", "AU", "RBA Rate Decision"),
             }
-
             for rel in data.get("release_dates", []):
                 name     = rel.get("release_name", "").lower()
                 date_str = rel.get("date", "")
@@ -305,35 +315,64 @@ def fetch_implied_rate_changes(cb_rates):
     if not FRED_API_KEY:
         return {}
 
-    # Use 3-month market rates vs policy rate as forward proxy
-    # All series verified to exist on FRED
+    # Use 3-month market rates vs policy rate as forward proxy.
+    # Series verified on FRED — using government bill / interbank rates as forward proxies.
+    # BOC: DTB3 equivalent is TB3MS (3M T-Bill secondary market) for CAD → use IRSTCB01CAM156N
+    # For non-USD CBs we use the IMF short-term interbank rates available on FRED.
     FORWARD_PROXIES = {
-        "FED": {"now": "FEDFUNDS",        "fwd": "DTB3"},              # Fed Funds vs 3M T-Bill
-        "ECB": {"now": "ECBDFR",          "fwd": "IR3TIB01EZM156N"},   # ECB vs 3M Euribor
-        "BOJ": {"now": "IRSTCB01JPM156N", "fwd": "IR3TIB01JPM156N"},   # BOJ vs 3M Tibor
+        "FED": {
+            "now": "FEDFUNDS",
+            "fwd": "DTB3",                  # 3M US T-Bill — daily, very liquid
+            "label": "3M T-Bill",
+        },
+        "ECB": {
+            "now": "ECBDFR",
+            "fwd": "IR3TIB01EZM156N",       # 3M Euribor
+            "label": "3M Euribor",
+        },
+        "BOE": {
+            "now": "IUDSOIA",
+            "fwd": "IR3TIB01GBM156N",       # 3M GBP interbank (LIBOR successor)
+            "label": "3M GBP Interbank",
+        },
+        "BOJ": {
+            "now": "INTDSRJPM193N",
+            "fwd": "IR3TIB01JPM156N",       # 3M JPY Tibor
+            "label": "3M JPY Tibor",
+        },
+        "BOC": {
+            "now": "INTDSRCAM193N",
+            "fwd": "IR3TIB01CAM156N",       # 3M CAD interbank
+            "label": "3M CAD Interbank",
+        },
+        "RBA": {
+            "now": "INTDSRAUM193N",
+            "fwd": "IR3TIB01AUM156N",       # 3M AUD interbank (BBSW proxy)
+            "label": "3M AUD Interbank",
+        },
     }
 
     implied = {}
     for cb, series in FORWARD_PROXIES.items():
         try:
-            now_rate  = cb_rates.get(cb, {})
-            fwd_data  = fetch_fred_series(series["fwd"])
+            now_rate = cb_rates.get(cb, {})
+            fwd_data = fetch_fred_series(series["fwd"])
             if not now_rate or not fwd_data:
+                print(f"  Implied rate skip ({cb}): now_rate={bool(now_rate)} fwd={bool(fwd_data)}")
                 continue
 
             current   = now_rate["current"]
             forward   = fwd_data["current"]
-            spread_bp = (forward - current) * 100  # convert to basis points
+            spread_bp = (forward - current) * 100
 
-            # Market convention: 25bp = full move; scale probability accordingly
             if abs(spread_bp) < 5:
-                direction = "hold"
+                direction   = "hold"
                 probability = 0
             elif spread_bp > 0:
-                direction = "hike"
+                direction   = "hike"
                 probability = min(int((spread_bp / 25) * 100), 95)
             else:
-                direction = "cut"
+                direction   = "cut"
                 probability = min(int((abs(spread_bp) / 25) * 100), 95)
 
             implied[cb] = {
@@ -342,7 +381,9 @@ def fetch_implied_rate_changes(cb_rates):
                 "spread_bp":    round(spread_bp, 1),
                 "forward_rate": round(forward, 3),
                 "current_rate": round(current, 3),
+                "fwd_label":    series["label"],
             }
+            print(f"  Implied {cb}: {direction} {probability}% (spread {spread_bp:+.1f}bp via {series['label']})")
         except Exception as e:
             print(f"  Implied rate error ({cb}): {e}")
 
@@ -421,26 +462,29 @@ def compute_alerts(cb_rates, upcoming_events, implied_moves):
         })
 
     # ── Implied move alerts (market-based, no scheduled event needed) ──
+    # These fill the 14-day outlook even when nextweek feed is unavailable.
+    # Threshold: 25%+ probability surfaces as an outlook item for portfolio pairs.
     for cb, imp in implied_moves.items():
-        if imp["probability"] < 40 or imp["direction"] == "hold":
+        if imp["probability"] < 25 or imp["direction"] == "hold":
             continue
         affected_pairs = [p for p, cbs in PAIR_CB_MAP.items() if cb in cbs]
         affected_bots  = [bot for bot, cfg in PORTFOLIO.items() if any(p in affected_pairs for p in cfg["pairs"])]
         if not affected_pairs:
             continue
-        # Only add if not already covered by a scheduled event
+        # Only add if not already covered by a confirmed scheduled event
         already = any(a["cb"] == cb for a in alerts + outlook)
         if not already:
-            severity = "high" if imp["probability"] >= 60 else "medium"
+            severity  = "high" if imp["probability"] >= 50 else "medium"
+            fwd_label = imp.get("fwd_label", "Forward rate")
             outlook.append({
-                "event": f"Market pricing {imp['probability']}% chance of {imp['direction']} ({imp['spread_bp']:+.0f}bp spread)",
-                "cb": cb, "date": "No meeting scheduled yet",
+                "event": f"Market pricing {imp['probability']}% {imp['direction']} probability",
+                "cb": cb, "date": "No meeting scheduled in feed",
                 "days_away": 999, "pairs": affected_pairs, "bots": affected_bots,
                 "severity": severity, "impact": "implied",
                 "forecast": f"{imp['forward_rate']}%", "previous": f"{imp['current_rate']}%",
-                "implied": f"Forward rate: {imp['forward_rate']}% vs current {imp['current_rate']}%",
-                "pause_rec": "MONITOR" if imp["probability"] >= 60 else "",
-                "window": "14d",
+                "implied": f"{fwd_label}: {imp['forward_rate']}% vs policy {imp['current_rate']}% ({imp['spread_bp']:+.1f}bp spread)",
+                "pause_rec": "PREPARE TO PAUSE" if imp["probability"] >= 50 else "MONITOR",
+                "window": "implied",
             })
 
     # ── Structural divergence alerts ──
