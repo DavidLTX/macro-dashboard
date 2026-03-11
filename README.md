@@ -9,16 +9,6 @@ Auto-updating forex macro dashboard for monitoring central bank policy and volat
 - Generates **portfolio volatility alerts** — correlating upcoming CB decisions with your active bot pairs
 - Publishes a **dark-theme HTML dashboard** to GitHub Pages, auto-refreshing hourly
 
-## Portfolio Tracked
-
-| Bot | Strategy | Pairs |
-|---|---|---|
-| FX InControl | Fibonacci Grid | EURJPY, USDCAD, EURGBP |
-| FX JetBot | Dual-Dir Grid | EURUSD, EURJPY, USDCAD, AUDUSD, EURGBP |
-| Happy Gold | Fixed-Lot Scalper | XAUUSD |
-| Happy Power | Grid Scalper | EURCHF |
-| Hedge EA | Dual-Dir Grid | AUDCAD |
-
 ## Setup
 
 See the step-by-step guide in the project README or follow these steps:
