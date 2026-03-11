@@ -38,13 +38,13 @@ PAIR_CB_MAP = {
 
 # FRED series for central bank policy rates
 FRED_SERIES = {
-    "FED": {"id": "FEDFUNDS",   "name": "Fed Funds Rate",    "currency": "USD", "flag": "🇺🇸"},
-    "ECB": {"id": "ECBDFR",     "name": "ECB Deposit Rate",  "currency": "EUR", "flag": "🇪🇺"},
-    "BOE": {"id": "BOEBR",      "name": "BOE Base Rate",     "currency": "GBP", "flag": "🇬🇧"},
-    "BOJ": {"id": "IRSTCB01JPM156N", "name": "BOJ Policy Rate", "currency": "JPY", "flag": "🇯🇵"},
-    "BOC": {"id": "IRSTCB01CAM156N", "name": "BOC Policy Rate", "currency": "CAD", "flag": "🇨🇦"},
-    "RBA": {"id": "IRSTCB01AUM156N", "name": "RBA Cash Rate", "currency": "AUD", "flag": "🇦🇺"},
-    "SNB": {"id": "IRSTCB01CHM156N", "name": "SNB Policy Rate", "currency": "CHF", "flag": "🇨🇭"},
+    "FED": {"id": "FEDFUNDS",        "name": "Fed Funds Rate",   "currency": "USD", "flag": "🇺🇸"},
+    "ECB": {"id": "ECBDFR",          "name": "ECB Deposit Rate", "currency": "EUR", "flag": "🇪🇺"},
+    "BOE": {"id": "IUDSOIA",         "name": "BOE SONIA Rate",   "currency": "GBP", "flag": "🇬🇧"},
+    "BOJ": {"id": "IRSTCB01JPM156N", "name": "BOJ Policy Rate",  "currency": "JPY", "flag": "🇯🇵"},
+    "BOC": {"id": "IRSTCB01CAM156N", "name": "BOC Policy Rate",  "currency": "CAD", "flag": "🇨🇦"},
+    "RBA": {"id": "RBAAOARD",        "name": "RBA Cash Rate",    "currency": "AUD", "flag": "🇦🇺"},
+    "SNB": {"id": "IRSTCB01CHQ156N", "name": "SNB Policy Rate",  "currency": "CHF", "flag": "🇨🇭"},
 }
 
 FRED_API_KEY = os.environ.get("FRED_API_KEY", "")
@@ -299,15 +299,19 @@ def generate_html(cb_rates, events, alerts):
 
     # ── Inline Sparkline SVG ──
     def mini_spark(history):
-        if len(history) < 2:
+        if not history or len(history) < 2:
             return ""
-        vals = [v for _, v in history]
+        try:
+            vals = [v for _, v in history]
+        except (TypeError, ValueError):
+            return ""
         mn, mx = min(vals), max(vals)
         rng = mx - mn or 0.01
         w, h = 60, 20
+        n = len(vals)
         pts = " ".join(
-            f"{int(i*(w/(len(vals)-1)))},{int(h - (v-mn)/rng*h)}"
-            for i, (_, v) in enumerate(history)
+            f"{int(i*(w/max(n-1,1)))},{int(h - (v-mn)/rng*h)}"
+            for i, v in enumerate(vals)
         )
         return f'<svg class="spark" viewBox="0 0 {w} {h}"><polyline points="{pts}" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>'
 
@@ -729,15 +733,20 @@ tr:hover td {{ background: #ffffff04; }}
 
 
 def generate_sparkline(history):
-    if len(history) < 2:
+    if not history or len(history) < 2:
         return ""
-    vals = [v for _, v in history]
+    # history is a list of (date_str, float) tuples
+    try:
+        vals = [v for _, v in history]
+    except (TypeError, ValueError):
+        return ""
     mn, mx = min(vals), max(vals)
     rng = mx - mn or 0.01
     w, h = 60, 18
+    n = len(vals)
     pts = " ".join(
-        f"{int(i*(w/max(len(vals)-1,1)))},{int(h - (v-mn)/rng*(h-2)+1)}"
-        for i, (_, v) in enumerate(vals)
+        f"{int(i * (w / max(n - 1, 1)))},{int(h - (v - mn) / rng * (h - 2) + 1)}"
+        for i, v in enumerate(vals)
     )
     return f'<svg class="spark" viewBox="0 0 {w} {h}"><polyline points="{pts}" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>'
 
