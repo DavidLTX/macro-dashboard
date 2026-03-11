@@ -190,7 +190,9 @@ def fetch_rateprobability(cb_key):
                 result["meetings"].append(parsed)
 
     if not result["meetings"]:
+        # Dump first 2000 chars of HTML for debugging
         print(f"  rateprobability.com ({cb_key}): no future meetings parsed")
+        print(f"  RP HTML preview: {html[:1500]!r}")
         return None
 
     next_mtg = result["meetings"][0]
