@@ -129,88 +129,83 @@ def fetch_rateprobability(cb_key):
 
     result = {"cb": cb_key.upper(), "source": "rateprobability.com", "meetings": []}
 
-    # Extract current rate — try common field names
+    # All data is nested under data['today']
+    today = data.get("today", {})
+    if not today:
+        print(f"  rateprobability.com ({cb_key}): no 'today' key in response")
+        return None
+
+    # Current rate — field name varies per CB
+    CB_RATE_KEYS = [
+        "cash_rate_target",       # RBA
+        "Overnight Rate Target",  # BOC (capitalised)
+        "current_target",         # BOE, BOJ
+        "ecb_deposit_facility",   # ECB
+        "depo_reported",          # ECB fallback
+        "midpoint",               # FED
+        "most_recent_effr",       # FED fallback
+    ]
     current_rate = None
-    for key in ("currentRate", "current_rate", "policyRate", "policy_rate", "rate", "targetRate"):
-        if key in data and data[key] is not None:
+    for key in CB_RATE_KEYS:
+        v = today.get(key)
+        if v is not None:
             try:
-                current_rate = float(data[key])
+                current_rate = float(v)
                 break
             except (TypeError, ValueError):
                 pass
-    # Fallback: look inside nested structure
-    if current_rate is None:
-        for key in ("meta", "info", "current", "summary"):
-            if isinstance(data.get(key), dict):
-                for subkey in ("rate", "currentRate", "policyRate", "targetRate"):
-                    try:
-                        current_rate = float(data[key][subkey])
-                        break
-                    except (TypeError, ValueError, KeyError):
-                        pass
-            if current_rate is not None:
-                break
 
     if current_rate is None:
-        print(f"  rateprobability.com ({cb_key}): could not find current rate in JSON: {str(data)[:300]}")
+        print(f"  rateprobability.com ({cb_key}): could not find rate. today keys: {list(today.keys())[:10]}")
         return None
     result["current_rate"] = current_rate
 
-    # Extract meeting path — try common array field names
-    meetings_data = None
-    for key in ("meetings", "path", "data", "rows", "schedule", "probabilities", "results"):
-        if isinstance(data.get(key), list) and data[key]:
-            meetings_data = data[key]
-            break
-
+    # Rows are under today['rows']
+    meetings_data = today.get("rows", [])
     if not meetings_data:
-        print(f"  rateprobability.com ({cb_key}): no meetings array in JSON. Keys: {list(data.keys())}")
+        print(f"  rateprobability.com ({cb_key}): no rows in today. Keys: {list(today.keys())}")
         return None
 
     now = datetime.now(timezone.utc)
     for row in meetings_data:
         if not isinstance(row, dict):
             continue
-        # Date field
-        date_val = None
-        for k in ("date", "meetingDate", "meeting_date", "decisionDate", "Date"):
-            if k in row and row[k]:
-                date_val = str(row[k])
-                break
+
+        # Date — use meeting_iso (YYYY-MM-DD) preferentially
+        date_val = row.get("meeting_iso") or row.get("meeting") or row.get("date")
         if not date_val:
             continue
-        # Parse date
         dt = None
-        for fmt in ("%Y-%m-%d", "%b %d, %Y", "%d/%m/%Y", "%Y-%m-%dT%H:%M:%S"):
+        for fmt in ("%Y-%m-%d", "%b %d, %Y", "%Y-%m-%dT%H:%M:%S"):
             try:
-                dt = datetime.strptime(date_val[:len(fmt)], fmt).replace(tzinfo=timezone.utc)
+                dt = datetime.strptime(str(date_val)[:10], fmt[:10]).replace(tzinfo=timezone.utc)
                 break
             except ValueError:
                 continue
         if not dt or dt < now - timedelta(days=1):
             continue
 
-        # Implied rate
+        # Implied rate post-meeting
         implied_rate = None
-        for k in ("impliedRate", "implied_rate", "rate", "impliedPostMeeting", "postMeetingRate"):
+        for k in ("implied_rate_post_meeting", "impliedRate", "implied_rate", "postMeetingRate"):
             try:
                 implied_rate = float(row[k])
                 break
             except (TypeError, ValueError, KeyError):
                 pass
 
-        # Probability
+        # Probability of move
         prob = None
-        for k in ("probability", "prob", "hikeProbability", "cutProbability", "moveProbability", "moveProb"):
+        for k in ("prob_move_pct", "probability", "prob", "moveProbability"):
             try:
                 prob = abs(float(row[k]))
                 break
             except (TypeError, ValueError, KeyError):
                 pass
 
-        # Delta bp
+        # Delta bp (cumulative change vs current)
         delta_bp = None
-        for k in ("deltaBp", "delta_bp", "delta", "bpChange", "cumulativeDelta", "changeBp"):
+        for k in ("change_bps", "deltaBp", "delta_bp", "delta", "bpChange"):
             try:
                 delta_bp = float(row[k])
                 break
@@ -220,7 +215,8 @@ def fetch_rateprobability(cb_key):
         if implied_rate is None or prob is None or delta_bp is None:
             continue
 
-        direction = "hold" if abs(delta_bp) < 1.5 else ("cut" if delta_bp < 0 else "hike")
+        is_cut = bool(row.get("prob_is_cut", False))
+        direction = "hold" if abs(delta_bp) < 1.5 else ("cut" if (delta_bp < 0 or is_cut) else "hike")
         result["meetings"].append({
             "date": dt, "date_str": dt.strftime("%b %d, %Y"),
             "implied_rate": implied_rate, "probability": prob,
