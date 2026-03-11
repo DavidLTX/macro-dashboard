@@ -75,59 +75,114 @@ def fetch_fred_series(series_id):
         return None
 
 def fetch_forex_factory_calendar():
-    """Fetch Forex Factory RSS for this week AND next week — gives ~14 day window."""
+    """
+    Fetch Forex Factory calendar for this week + next week (~14 day window).
+    Tries multiple known URL patterns with fallback chain.
+    """
     events = []
-    feeds = [
-        "https://nfs.faireconomy.media/ff_calendar_thisweek.xml",
-        "https://nfs.faireconomy.media/ff_calendar_nextweek.xml",
-    ]
     cb_map = {"US":"FED","EU":"ECB","GB":"BOE","JP":"BOJ","CA":"BOC","AU":"RBA","CH":"SNB","NZ":"RBNZ"}
-    seen = set()
+    seen   = set()
 
-    for url in feeds:
+    # Primary + fallback URL pairs for each week
+    feed_candidates = [
+        # This week
+        "https://nfs.faireconomy.media/ff_calendar_thisweek.xml",
+        "https://cdn-nfs.faireconomy.media/ff_calendar_thisweek.xml",
+        # Next week
+        "https://nfs.faireconomy.media/ff_calendar_nextweek.xml",
+        "https://cdn-nfs.faireconomy.media/ff_calendar_nextweek.xml",
+    ]
+
+    # Rotate through User-Agent strings to avoid blocks
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/122.0.0.0 Safari/537.36"
+        ),
+        "Accept": "application/xml, text/xml, */*",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Cache-Control": "no-cache",
+    }
+
+    fetched_weeks = set()  # track "thisweek" / "nextweek" so we don't double-fetch
+
+    for url in feed_candidates:
+        week_key = "thisweek" if "thisweek" in url else "nextweek"
+        if week_key in fetched_weeks:
+            continue  # already got this week's data from a prior URL
+
         try:
-            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-            with urllib.request.urlopen(req, timeout=10) as resp:
+            print(f"    Trying {url}")
+            req = urllib.request.Request(url, headers=headers)
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                status = resp.status
                 content = resp.read()
+            print(f"    → HTTP {status}, {len(content)} bytes")
+
+            if not content.strip():
+                print(f"    → Empty response, skipping")
+                continue
+
             root = ET.fromstring(content)
             channel = root.find("channel")
             if channel is None:
+                print(f"    → No <channel> element found in XML")
                 continue
+
+            items_found = 0
             for item in channel.findall("item"):
-                title    = item.findtext("title", "")
-                date_str = item.findtext("date", "")
-                country  = item.findtext("country", "").upper()
-                impact   = item.findtext("impact", "").lower()
-                forecast = item.findtext("forecast", "")
-                previous = item.findtext("previous", "")
-                actual   = item.findtext("actual", "")
+                title    = item.findtext("title", "").strip()
+                date_str = item.findtext("date", "").strip()
+                country  = item.findtext("country", "").upper().strip()
+                impact   = item.findtext("impact", "").lower().strip()
+                forecast = item.findtext("forecast", "").strip()
+                previous = item.findtext("previous", "").strip()
+                actual   = item.findtext("actual", "").strip()
 
                 if impact not in ("high", "medium"):
                     continue
 
-                # Deduplicate across feeds
                 key = f"{title}|{date_str}|{country}"
                 if key in seen:
                     continue
                 seen.add(key)
 
-                try:
-                    dt = datetime.strptime(date_str, "%Y-%m-%dT%H:%M:%S%z")
-                except:
+                dt = None
+                for fmt in ("%Y-%m-%dT%H:%M:%S%z", "%Y-%m-%dT%H:%M:%Sz", "%Y-%m-%dT%H:%M"):
                     try:
-                        dt = datetime.strptime(date_str[:16], "%Y-%m-%dT%H:%M")
-                        dt = dt.replace(tzinfo=timezone.utc)
+                        dt = datetime.strptime(date_str[:len(fmt)+4], fmt)
+                        if dt.tzinfo is None:
+                            dt = dt.replace(tzinfo=timezone.utc)
+                        break
                     except:
-                        dt = None
+                        continue
 
                 cb = cb_map.get(country, country)
                 events.append({
-                    "title": title, "date": dt, "date_str": date_str[:10] if date_str else "",
+                    "title": title, "date": dt,
+                    "date_str": date_str[:10] if date_str else "",
                     "country": country, "cb": cb, "impact": impact,
                     "forecast": forecast, "previous": previous, "actual": actual,
                 })
+                items_found += 1
+
+            print(f"    → Parsed {items_found} high/medium events from {week_key}")
+            fetched_weeks.add(week_key)
+
+        except urllib.error.HTTPError as e:
+            print(f"    → HTTP Error {e.code} {e.reason} — trying next URL")
+        except urllib.error.URLError as e:
+            print(f"    → URL Error: {e.reason} — trying next URL")
+        except ET.ParseError as e:
+            print(f"    → XML parse error: {e} — trying next URL")
         except Exception as e:
-            print(f"  Forex Factory error ({url}): {e}")
+            print(f"    → Unexpected error: {type(e).__name__}: {e}")
+
+    if not events:
+        print("  ⚠ No events loaded from any Forex Factory feed")
+    else:
+        print(f"  ✓ Total events loaded: {len(events)}")
 
     return sorted(events, key=lambda x: x["date"] or datetime.min.replace(tzinfo=timezone.utc))
 
@@ -432,7 +487,7 @@ def generate_html(cb_rates, events, alerts, outlook, implied_moves):
         shown += 1
 
     if not shown:
-        cal_rows = '<tr><td colspan="8" class="no-data">No events loaded — check Forex Factory connectivity</td></tr>'
+        cal_rows = '<tr><td colspan="8" class="no-data">No events loaded this run — Forex Factory feed may be temporarily unavailable. Data will appear on the next scheduled refresh.</td></tr>'
 
     # ── Portfolio Pair Map ──
     pair_rows = ""
