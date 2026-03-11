@@ -131,69 +131,63 @@ def fetch_rateprobability(cb_key):
         print(f"  rateprobability.com ({cb_key}): could not parse current rate")
         return None
 
-    # Parse meeting table rows line by line — handles both positive and (negative) formats
+    # Parse meeting table — handles both raw HTML <tr><td> and markdown pipe formats
     now = datetime.now(timezone.utc)
-    for line in html.splitlines():
-        line = line.strip()
-        if not line.startswith('|'):
-            continue
-        cols = [c.strip() for c in line.split('|')]
-        cols = [c for c in cols if c]  # remove empty edge cells
-        if len(cols) < 5:
-            continue
 
-        date_col    = cols[0]
-        implied_col = cols[1]
-        prob_col    = cols[2]
-        delta_col   = cols[4] if len(cols) > 4 else cols[3]
-
-        # Date column must look like "Jan 28, 2026"
-        date_match = re.match(r'([A-Za-z]+ \d+,\s*\d{4})', date_col)
-        if not date_match:
-            continue
+    def _parse_row(date_col, implied_col, prob_col, delta_col):
+        # Strip HTML tags from cells
+        def strip_tags(s):
+            return re.sub(r'<[^>]+>', '', s).strip()
+        date_col, implied_col, prob_col, delta_col = (
+            strip_tags(date_col), strip_tags(implied_col),
+            strip_tags(prob_col), strip_tags(delta_col)
+        )
+        date_match    = re.search(r'([A-Za-z]+ \d+,\s*\d{4})', date_col)
+        implied_match = re.search(r'([\d.]+)%', implied_col)
+        prob_match    = re.search(r'([\d.]+)%', prob_col)
+        delta_match   = re.search(r'(-?[\d.]+)', delta_col.replace('(', '-').replace(')', ''))
+        if not all([date_match, implied_match, prob_match, delta_match]):
+            return None
         try:
             dt = datetime.strptime(date_match.group(1).strip(), "%b %d, %Y").replace(tzinfo=timezone.utc)
         except Exception:
-            continue
+            return None
         if dt < now - timedelta(days=1):
+            return None
+        is_cut_prob = '(' in prob_col
+        delta_bp    = float(delta_match.group(1))
+        direction   = "hold" if abs(delta_bp) < 1.5 else (
+                      "cut"  if (delta_bp < 0 or is_cut_prob) else "hike")
+        return {
+            "date": dt, "date_str": dt.strftime("%b %d, %Y"),
+            "implied_rate": float(implied_match.group(1)),
+            "probability":  float(prob_match.group(1)),
+            "direction": direction, "delta_bp": delta_bp,
+        }
+
+    # Try HTML table format first (<tr><td>)
+    html_rows = re.findall(r'<tr>(.*?)</tr>', html, re.DOTALL)
+    for row in html_rows:
+        cells = re.findall(r'<td>(.*?)</td>', row, re.DOTALL)
+        if len(cells) < 5:
             continue
+        parsed = _parse_row(cells[0], cells[1], cells[2], cells[4])
+        if parsed:
+            result["meetings"].append(parsed)
 
-        # Implied rate: "2.26%"
-        implied_match = re.search(r'([\d.]+)%', implied_col)
-        if not implied_match:
-            continue
-
-        # Probability: "5.2%" or "(9.2%)" — parens indicate cut direction
-        prob_match = re.search(r'([\d.]+)%', prob_col)
-        if not prob_match:
-            continue
-        is_cut_prob = '(' in prob_col  # parenthesised = cut
-
-        # Delta: "-1.0" or "(1.0)" or "6.3"
-        delta_match = re.search(r'(-?[\d.]+)', delta_col.replace('(', '-').replace(')', ''))
-        if not delta_match:
-            continue
-
-        implied_rate = float(implied_match.group(1))
-        prob         = float(prob_match.group(1))
-        delta_bp     = float(delta_match.group(1))
-
-        # Direction: use delta sign as ground truth; parens on prob confirm cut
-        if abs(delta_bp) < 1.5:
-            direction = "hold"
-        elif delta_bp > 0 and not is_cut_prob:
-            direction = "hike"
-        else:
-            direction = "cut"
-
-        result["meetings"].append({
-            "date": dt,
-            "date_str": dt.strftime("%b %d, %Y"),
-            "implied_rate": implied_rate,
-            "probability": prob,
-            "direction": direction,
-            "delta_bp": delta_bp,
-        })
+    # Fallback: markdown pipe table (used when fetched via web proxy / Claude tool)
+    if not result["meetings"]:
+        for line in html.splitlines():
+            line = line.strip()
+            if not line.startswith('|'):
+                continue
+            cols = [c.strip() for c in line.split('|')]
+            cols = [c for c in cols if c]
+            if len(cols) < 5:
+                continue
+            parsed = _parse_row(cols[0], cols[1], cols[2], cols[4] if len(cols) > 4 else cols[3])
+            if parsed:
+                result["meetings"].append(parsed)
 
     if not result["meetings"]:
         print(f"  rateprobability.com ({cb_key}): no future meetings parsed")
@@ -681,7 +675,7 @@ def trend_arrow(trend):
 def severity_class(s):
     return {"critical": "sev-critical", "high": "sev-high", "medium": "sev-medium"}.get(s, "sev-medium")
 
-def generate_html(cb_rates, events, alerts, outlook, implied_moves):
+def generate_html(cb_rates, events, alerts, implied_moves):
     now_str = datetime.now(timezone.utc).strftime("%A, %B %d %Y — %H:%M UTC")
     now_ts  = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -740,34 +734,6 @@ def generate_html(cb_rates, events, alerts, outlook, implied_moves):
               <div class="alert-meta">{fc_str}{pr_str}</div>
               <div class="alert-pairs">Pairs at risk: {pairs_str}</div>
               <div class="alert-bots">Exposed bots: {bots_str}</div>
-            </div>"""
-
-    # ── Outlook Cards (7-14 days) ──
-    outlook_html = ""
-    if not outlook:
-        outlook_html = '<div class="no-alerts">✓ No notable scheduled events in the 7–14 day window for your pairs.</div>'
-    else:
-        for a in sorted(outlook, key=lambda x: x["days_away"]):
-            pairs_str  = " ".join(f'<span class="pair-tag">{p}</span>' for p in a["pairs"])
-            bots_str   = " ".join(f'<span class="bot-tag">{b}</span>' for b in a["bots"])
-            fc_str     = f'<span class="forecast">Forecast: {a["forecast"]}</span>' if a.get("forecast") else ""
-            pr_str     = f'<span class="forecast-prev">Prev: {a["previous"]}</span>' if a.get("previous") else ""
-            imp_str    = f'<div class="implied-badge">📊 {a["implied"]}</div>' if a.get("implied") else ""
-            pause_html = f'<div class="pause-rec pause-{a["severity"]}">{a["pause_rec"]}</div>' if a.get("pause_rec") else ""
-            days_label = f"In {a['days_away']} days" if a["days_away"] < 900 else ""
-            outlook_html += f"""
-            <div class="alert-card outlook-card {severity_class(a['severity'])}">
-              <div class="alert-top">
-                <span class="alert-cb">{a['cb']}</span>
-                <span class="days-badge">{days_label}</span>
-              </div>
-              {pause_html}
-              <div class="alert-event">{a['event']}</div>
-              <div class="alert-date">📅 {a['date']}</div>
-              {imp_str}
-              <div class="alert-meta">{fc_str}{pr_str}</div>
-              <div class="alert-pairs">Pairs at risk: {pairs_str}</div>
-              <div class="alert-bots">Watching bots: {bots_str}</div>
             </div>"""
 
     # ── Event Calendar ──
@@ -1345,15 +1311,7 @@ tr:hover td {{ background: #ffffff04; }}
     </div>
   </section>
 
-  <!-- ── Section 4: Outlook 7-14 days ── -->
-  <section>
-    <div class="section-title">🔭 14-Day Outlook — Potential Risk Events</div>
-    <div class="alerts-grid">
-      {outlook_html}
-    </div>
-  </section>
-
-  <!-- ── Section 5: Portfolio Pair Map ── -->
+  <!-- ── Section 4: Portfolio Pair Map ── -->
   <section>
     <div class="section-title">Portfolio Pair Exposure Map</div>
     <div class="portfolio-table">
@@ -1479,7 +1437,7 @@ def main():
 
     # 5. Generate HTML
     print("  Generating HTML dashboard...")
-    html = generate_html(cb_rates, events, alerts, outlook, implied_moves)
+    html = generate_html(cb_rates, events, alerts, implied_moves)
 
     # 6. Write output
     out_path = os.path.join(os.path.dirname(__file__), "docs", "index.html")
