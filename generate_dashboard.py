@@ -242,8 +242,6 @@ def fetch_rateprobability(cb_key):
         "next_implied_rate":      next_mtg["implied_rate"],
         "delta_bp":               next_mtg["delta_bp"],
     })
-    if cb_key.lower() == "rba":
-        print(f"  RBA raw rows[0]: {meetings_data[0] if meetings_data else None}")
     print(f"  rateprobability.com ({cb_key.upper()}): {result['current_rate']}% → "
           f"{next_mtg['direction']} {next_mtg['probability']}% @ {next_mtg['date_str']} "
           f"(Δ{next_mtg['delta_bp']:+.1f}bp)")
