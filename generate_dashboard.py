@@ -74,11 +74,11 @@ def fetch_fred_series(series_id):
     """Fetch last 6 months of a FRED data series."""
     if not FRED_API_KEY:
         return None
-    six_months_ago = (datetime.now() - timedelta(days=180)).strftime("%Y-%m-%d")
+    twelve_months_ago = (datetime.now() - timedelta(days=365)).strftime("%Y-%m-%d")
     url = (
         f"https://api.stlouisfed.org/fred/series/observations"
         f"?series_id={series_id}&api_key={FRED_API_KEY}"
-        f"&observation_start={six_months_ago}&file_type=json&sort_order=desc&limit=6"
+        f"&observation_start={twelve_months_ago}&file_type=json&sort_order=desc&limit=13"
     )
     try:
         with urllib.request.urlopen(url, timeout=10) as resp:
@@ -86,20 +86,24 @@ def fetch_fred_series(series_id):
         obs = [o for o in data.get("observations", []) if o["value"] != "."]
         if not obs:
             return None
-        values = [float(o["value"]) for o in obs[:6]]
-        dates  = [o["date"] for o in obs[:6]]
-        current  = values[0]
-        prev     = values[1] if len(values) > 1 else current
-        oldest   = values[-1] if len(values) > 1 else current
-        # Trend based on full 6-month range to avoid same-month noise
+        # Use up to 13 months; sparkline shows last 6 for visual clarity
+        all_values = [float(o["value"]) for o in obs]
+        all_dates  = [o["date"] for o in obs]
+        current  = all_values[0]
+        prev     = all_values[1] if len(all_values) > 1 else current
+        oldest   = all_values[-1] if len(all_values) > 1 else current
+        # Trend based on full 12-month range to capture rate cycles
         if current > oldest + 0.05:
             trend = "hiking"
         elif current < oldest - 0.05:
             trend = "cutting"
         else:
             trend = "holding"
-        history = list(zip(dates[::-1], values[::-1]))
-        return {"current": current, "previous": prev, "trend": trend, "history": history, "date": dates[0]}
+        # Sparkline uses last 6 months of data (most recent 6 points)
+        spark_vals  = all_values[:6]
+        spark_dates = all_dates[:6]
+        history = list(zip(spark_dates[::-1], spark_vals[::-1]))
+        return {"current": current, "previous": prev, "trend": trend, "history": history, "date": all_dates[0]}
     except Exception as e:
         print(f"  FRED error ({series_id}): {e}")
         return None
