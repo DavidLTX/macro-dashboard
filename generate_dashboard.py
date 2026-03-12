@@ -86,22 +86,21 @@ def fetch_fred_series(series_id):
         obs = [o for o in data.get("observations", []) if o["value"] != "."]
         if not obs:
             return None
-        # Use up to 13 months; sparkline shows last 6 for visual clarity
         all_values = [float(o["value"]) for o in obs]
         all_dates  = [o["date"] for o in obs]
         current  = all_values[0]
         prev     = all_values[1] if len(all_values) > 1 else current
-        oldest   = all_values[-1] if len(all_values) > 1 else current
-        # Trend based on full 12-month range to capture rate cycles
-        if current > oldest + 0.05:
+        # Sparkline = most recent 6 data points
+        spark_vals  = all_values[:6]
+        spark_dates = all_dates[:6]
+        # Trend derived from sparkline endpoints so arrow always matches the visible chart
+        spark_oldest = spark_vals[-1] if len(spark_vals) > 1 else current
+        if current > spark_oldest + 0.05:
             trend = "hiking"
-        elif current < oldest - 0.05:
+        elif current < spark_oldest - 0.05:
             trend = "cutting"
         else:
             trend = "holding"
-        # Sparkline uses last 6 months of data (most recent 6 points)
-        spark_vals  = all_values[:6]
-        spark_dates = all_dates[:6]
         history = list(zip(spark_dates[::-1], spark_vals[::-1]))
         return {"current": current, "previous": prev, "trend": trend, "history": history, "date": all_dates[0]}
     except Exception as e:
