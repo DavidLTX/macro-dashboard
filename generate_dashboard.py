@@ -68,6 +68,7 @@ FRED_SERIES = {
 
 FRED_API_KEY = os.environ.get("FRED_API_KEY", "")
 
+
 # ── Data Fetching ──────────────────────────────────────────────────────────────
 
 def fetch_fred_series(series_id):
@@ -557,8 +558,18 @@ def fetch_implied_rate_changes(cb_rates):
         if imp:
             implied[cb] = imp
             if not cb_rates.get(cb):
+                # CB rate card fully missing — build from RP
                 cb_rates[cb] = _rp_to_cb_rate(rp)
                 print(f"  CB rate backfilled for {cb} from rateprobability.com: {imp['current_rate']}%")
+            else:
+                # CB rate card exists from FRED (may be interbank proxy) —
+                # patch displayed rate with RP policy rate so both sections agree
+                rp_rate = imp["current_rate"]
+                fred_rate = cb_rates[cb]["current"]
+                if abs(rp_rate - fred_rate) > 0.01:
+                    cb_rates[cb]["current"] = rp_rate
+                    cb_rates[cb]["label"]   = cb_rates[cb].get("label", "") + " (policy)"
+                    print(f"  CB rate patched for {cb}: FRED proxy {fred_rate}% → RP policy {rp_rate}%")
 
     # Fallback: FRED spread for any CB that RP couldn't load
     rp_missing = [cb for cb in FORWARD_PROXIES if cb not in implied]
@@ -1281,6 +1292,7 @@ tr:hover td {{ background: #ffffff04; }}
 </style>
 </head>
 <body>
+
 
 <header class="header">
   <div class="header-left">
