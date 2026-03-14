@@ -555,4 +555,662 @@ def fetch_forex_factory_calendar():
                             }
                         )
                         break
-            print(f" → FRED
+            print(f" → FRED fallback: {len(events)} events")
+        except Exception as e:
+            import traceback
+
+            print(f" → FRED fallback failed: {e}")
+            traceback.print_exc()
+
+    if not events:
+        print(" ⚠ All calendar sources failed")
+    else:
+        print(f" ✓ Total calendar events: {len(events)}")
+
+    return sorted(events, key=lambda x: x["date"] or datetime.min.replace(tzinfo=timezone.utc))
+
+
+def fetch_implied_rate_changes(cb_rates):
+    """
+    Estimate implied rate change probability using rateprobability.com as primary
+    and FRED forward/OIS spread as fallback.
+    Returns dict: cb -> {direction, probability, basis_points, source}
+    """
+    if not FRED_API_KEY:
+        # Still allow rateprobability.com even without FRED key
+        pass
+
+    implied = {}
+
+    # Primary source: rateprobability.com — uses real OIS/futures pricing per meeting.
+    rp_slugs = {"FED": "fed", "ECB": "ecb", "BOE": "boe", "BOJ": "boj", "BOC": "boc", "RBA": "rba"}
+    print(" Fetching next-meeting probabilities from rateprobability.com...")
+    for cb, slug in rp_slugs.items():
+        rp = fetch_rateprobability(slug)
+        imp = _rp_to_implied(rp)
+        if imp:
+            implied[cb] = imp
+            if not cb_rates.get(cb):
+                # CB rate card fully missing — build from RP
+                cb_rates[cb] = _rp_to_cb_rate(rp)
+                print(f" CB rate backfilled for {cb} from rateprobability.com: {imp['current_rate']}%")
+            else:
+                # Patch displayed rate with RP policy rate so both sections agree
+                rp_rate = imp["current_rate"]
+                fred_rate = cb_rates[cb]["current"]
+                if abs(rp_rate - fred_rate) > 0.01:
+                    cb_rates[cb]["current"] = rp_rate
+                    cb_rates[cb]["label"] = cb_rates[cb].get("label", "") + " (policy)"
+                    print(f" CB rate patched for {cb}: FRED proxy {fred_rate}% → RP policy {rp_rate}%")
+
+    # Fallback: FRED spread for any CB that RP couldn't load
+    FORWARD_PROXIES = {
+        "FED": {"fwd": ["DTB3"], "label": "3M T-Bill"},
+        "ECB": {"fwd": ["IR3TIB01EZM156N"], "label": "3M Euribor"},
+        "BOE": {"fwd": ["IR3TIB01GBM156N", "IR3TBB01GBM156N"], "label": "3M GBP Interbank"},
+        "BOJ": {"fwd": ["IR3TIB01JPM156N"], "label": "3M JPY Tibor"},
+        "BOC": {"fwd": ["IR3TIB01CAM156N", "IR3TBB01CAM156N", "TB3MS"], "label": "3M CAD Interbank"},
+        "RBA": {"fwd": ["IR3TIB01AUM156N", "IR3TBB01AUM156N"], "label": "3M AUD Interbank"},
+    }
+
+    rp_missing = [cb for cb in FORWARD_PROXIES if cb not in implied]
+    if rp_missing:
+        print(f" RP missing for {rp_missing} — using FRED spread fallback...")
+        for cb in rp_missing:
+            series = FORWARD_PROXIES[cb]
+            try:
+                now_rate = cb_rates.get(cb)
+                if not now_rate:
+                    continue
+                fwd_data = None
+                fwd_label = series["label"]
+                for fwd_id in series["fwd"]:
+                    fwd_data = fetch_fred_series(fwd_id)
+                    if fwd_data:
+                        fwd_label = f"{series['label']} ({fwd_id})"
+                        break
+                if not fwd_data:
+                    continue
+                current = now_rate["current"]
+                forward = fwd_data["current"]
+                spread_bp = (forward - current) * 100
+                if abs(spread_bp) < 5:
+                    direction, probability = "hold", 0
+                elif spread_bp > 0:
+                    direction = "hike"
+                    probability = min(int((spread_bp / 25) * 100), 95)
+                else:
+                    direction = "cut"
+                    probability = min(int((abs(spread_bp) / 25) * 100), 95)
+                implied[cb] = {
+                    "direction": direction,
+                    "probability": probability,
+                    "spread_bp": round(spread_bp, 1),
+                    "forward_rate": round(forward, 3),
+                    "current_rate": round(current, 3),
+                    "fwd_label": fwd_label,
+                }
+                print(f" Implied {cb} (FRED): {direction} {probability}% ({spread_bp:+.1f}bp via {fwd_label})")
+            except Exception as e:
+                print(f" Implied rate error ({cb}): {e}")
+
+    return implied
+
+
+# ── Risk scoring helpers (NEW in v1) ───────────────────────────────────────────
+
+def _event_volatility_score(event, days_away, affected_pairs, affected_bots):
+    """
+    Simple heuristic 0–100 event volatility score:
+    - base by impact (high/medium)
+    - +time proximity (0 days away = strongest)
+    - +event type weight (rates/inflation/labor > GDP > sentiment/etc.)
+    - scaled by how many portfolio pairs/bots are touched
+    """
+    # Impact base
+    impact = event.get("impact", "medium")
+    base = 70 if impact == "high" else 45
+
+    # Time decay: same day = +25, 1–2d = +15, 3–5d = +8, 6–7d = +3
+    if days_away <= 0:
+        time_bonus = 25
+    elif days_away <= 2:
+        time_bonus = 15
+    elif days_away <= 5:
+        time_bonus = 8
+    else:
+        time_bonus = 3
+
+    title = (event.get("title") or "").lower()
+
+    # Type weight
+    type_bonus = 0
+    if any(k in title for k in ["rate decision", "rate statement", "fomc", "policy"]):
+        type_bonus = 20
+    elif any(k in title for k in ["cpi", "inflation", "pce"]):
+        type_bonus = 18
+    elif any(k in title for k in ["employment", "unemployment", "job", "payroll", "nfp"]):
+        type_bonus = 16
+    elif any(k in title for k in ["gdp"]):
+        type_bonus = 12
+    elif any(k in title for k in ["pmis", "manufacturing", "services"]):
+        type_bonus = 8
+    else:
+        type_bonus = 5  # generic macro
+
+    # Portfolio exposure: more pairs/bots → higher score
+    exposure_factor = min(len(affected_pairs), 3) * 4 + min(len(affected_bots), 3) * 5
+
+    raw = base + time_bonus + type_bonus + exposure_factor
+    return max(0, min(int(raw), 100))
+
+
+def _bot_risk_indices(alerts):
+    """
+    Aggregate event scores into per-bot risk indices for 24h and 72h windows.
+    Simple capped sum with decay by horizon and bot-specific weight.
+    """
+    risk = {bot: {"24h": 0.0, "72h": 0.0} for bot in PORTFOLIO.keys()}
+    now = datetime.now(timezone.utc)
+
+    for a in alerts:
+        score = a.get("score", 0)
+        if score <= 0:
+            continue
+        event_dt = a.get("_dt")
+        if not event_dt or not isinstance(event_dt, datetime):
+            continue
+        delta_hours = (event_dt - now).total_seconds() / 3600.0
+        if delta_hours < 0:
+            continue
+
+        for bot in a.get("bots", []):
+            w = BOT_SEVERITY_WEIGHTS.get(bot, 1.0)
+            if delta_hours <= 24:
+                risk[bot]["24h"] += score * w
+            if delta_hours <= 72:
+                # 72h bucket includes 24h too (no double weighting)
+                risk[bot]["72h"] += score * w * 0.7
+
+    # Normalise to 0–100 with simple cap
+    for bot in risk:
+        for horizon in ("24h", "72h"):
+            risk[bot][horizon] = int(min(risk[bot][horizon], 100))
+
+    return risk
+
+
+def compute_alerts(cb_rates, upcoming_events, implied_moves):
+    """Generate volatility alerts for events in the next 7 days affecting portfolio pairs."""
+    alerts = []
+    now = datetime.now(timezone.utc)
+    next_7d = now + timedelta(days=7)
+
+    # ── Confirmed alerts: events in next 7 days ──
+    for event in upcoming_events:
+        if not event["date"] or not (now <= event["date"] <= next_7d):
+            continue
+
+        affected_pairs = [p for p, cbs in PAIR_CB_MAP.items() if event["cb"] in cbs]
+        affected_bots = [bot for bot, cfg in PORTFOLIO.items() if any(p in affected_pairs for p in cfg["pairs"])]
+        if not affected_pairs:
+            continue
+
+        days_away = max((event["date"] - now).days, 0)
+        severity = "critical" if days_away <= 1 else ("high" if days_away <= 3 else "medium")
+
+        # Pause recommendation based on severity + event type
+        is_rate_decision = any(
+            kw in event["title"].lower()
+            for kw in ["rate", "decision", "policy", "statement", "minutes", "nfp", "non-farm", "cpi", "inflation"]
+        )
+        pause_rec = ""
+        if severity == "critical" and is_rate_decision:
+            pause_rec = "CONSIDER PAUSING"
+        elif severity == "high" and is_rate_decision:
+            pause_rec = "MONITOR CLOSELY"
+
+        # NEW: event volatility score
+        score = _event_volatility_score(event, days_away, affected_pairs, affected_bots)
+
+        alerts.append(
+            {
+                "event": event["title"],
+                "cb": event["cb"],
+                "date": event["date"].strftime("%a %b %d, %H:%M UTC"),
+                "_dt": event["date"],  # for risk computation
+                "days_away": days_away,
+                "pairs": affected_pairs,
+                "bots": affected_bots,
+                "severity": severity,
+                "impact": event["impact"],
+                "forecast": event["forecast"],
+                "previous": event["previous"],
+                "pause_rec": pause_rec,
+                "window": "7d",
+                "score": score,
+            }
+        )
+
+    # ── Structural divergence alerts ──
+    loaded = {k: v for k, v in cb_rates.items() if v}
+    for pair, cbs in PAIR_CB_MAP.items():
+        if len(cbs) == 2 and all(c in loaded for c in cbs):
+            a, b = loaded[cbs[0]], loaded[cbs[1]]
+            if a["trend"] != b["trend"] and "holding" not in [a["trend"], b["trend"]]:
+                affected_bots = [bot for bot, cfg in PORTFOLIO.items() if pair in cfg["pairs"]]
+                alerts.append(
+                    {
+                        "event": f"Policy Divergence: {cbs[0]} {a['trend']} vs {cbs[1]} {b['trend']}",
+                        "cb": f"{cbs[0]}/{cbs[1]}",
+                        "date": "Structural / Ongoing",
+                        "_dt": None,
+                        "days_away": 998,
+                        "pairs": [pair],
+                        "bots": affected_bots,
+                        "severity": "medium",
+                        "impact": "structural",
+                        "forecast": "",
+                        "previous": "",
+                        "pause_rec": "",
+                        "window": "7d",
+                        "score": 40,
+                    }
+                )
+
+    return alerts
+
+
+# ── HTML Generation ────────────────────────────────────────────────────────────
+
+def trend_arrow(trend):
+    if trend == "hiking":
+        return "▲"
+    if trend == "cutting":
+        return "▼"
+    return "◆"
+
+
+def severity_class(s):
+    return {"critical": "sev-critical", "high": "sev-high", "medium": "sev-medium"}.get(s, "sev-medium")
+
+
+def generate_sparkline(history, css_class="spark-flat"):
+    if not history or len(history) < 2:
+        return ""
+    try:
+        vals = [v for _, v in history]
+    except (TypeError, ValueError):
+        return ""
+    mn, mx = min(vals), max(vals)
+    rng = mx - mn or 0.01
+    w, h = 200, 36
+    n = len(vals)
+    pts = " ".join(
+        f"{int(i * (w / max(n - 1, 1)))},{int(h - (v - mn) / rng * (h - 4) + 2)}"
+        for i, v in enumerate(vals)
+    )
+    return (
+        f'<svg class="spark {css_class}" viewBox="0 0 {w} {h}" preserveAspectRatio="none">'
+        f'<polyline points="{pts}" />'
+        f"</svg>"
+    )
+
+
+def generate_html(cb_rates, events, alerts, implied_moves, bot_risk):
+    now_str = datetime.now(timezone.utc).strftime("%A, %B %d %Y — %H:%M UTC")
+    now_ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    # ── CB Rate Cards ──
+    cb_cards_html = ""
+    for cb, info in FRED_SERIES.items():
+        rate = cb_rates.get(cb)
+        if rate:
+            val = f"{rate['current']:.2f}%"
+            prev = f"{rate['previous']:.2f}%"
+            arrow = trend_arrow(rate["trend"])
+            trend_cls = {
+                "hiking": "trend-up",
+                "cutting": "trend-down",
+                "holding": "trend-flat",
+            }.get(rate["trend"], "trend-flat")
+            spark_cls = {
+                "hiking": "spark-up",
+                "cutting": "spark-down",
+                "holding": "spark-flat",
+            }.get(rate["trend"], "spark-flat")
+            sparkline = generate_sparkline(rate.get("history", []), spark_cls)
+            as_of = rate.get("date", "")
+        else:
+            val = "N/A"
+            prev = "–"
+            arrow = ""
+            trend_cls = "trend-flat"
+            sparkline = ""
+            as_of = ""
+
+        cb_cards_html += f"""
+        <article class="card cb-card {trend_cls}">
+            <header class="cb-header">
+                <div class="cb-flag">{info['flag']}</div>
+                <div class="cb-meta">
+                    <div class="cb-code">{info['currency']} {cb}</div>
+                    <div class="cb-trend">{arrow}</div>
+                </div>
+            </header>
+            <div class="cb-body">
+                <div class="cb-rate">{val}</div>
+                <div class="cb-name">{info['name']}</div>
+                <div class="cb-prev">Prev: {prev}</div>
+                <div class="cb-spark">
+                    {sparkline}
+                    <div class="spark-label">6-month rate history</div>
+                    <div class="spark-date">as of {as_of}</div>
+                </div>
+            </div>
+        </article>
+        """
+
+    # ── Implied Rate Probability Cards ──
+    implied_html = ""
+    if not implied_moves:
+        implied_html = (
+            "Market-implied probability data unavailable — forward rate series may not have loaded. "
+            "Check FRED API key and connectivity."
+        )
+    else:
+        for cb, imp in implied_moves.items():
+            dir_cls = imp["direction"]
+            pct = imp["probability"]
+            fill_cls = {"hike": "imp-hike", "cut": "imp-cut", "hold": "imp-hold"}.get(dir_cls, "imp-hold")
+            pct_cls = {"hike": "hike", "cut": "cut", "hold": "hold"}.get(dir_cls, "hold")
+            dir_label = {"hike": "▲ HIKE", "cut": "▼ CUT", "hold": "◆ HOLD"}.get(dir_cls, dir_cls.upper())
+            # For hold: show hold confidence (100 - move prob). For hike/cut: show move prob.
+            display_pct = (100 - pct) if dir_cls == "hold" else pct
+            display_pct = min(int(display_pct), 99)
+            next_mtg = imp.get("next_meeting", "")
+            next_mtg_str = f"📅 {next_mtg} · " if next_mtg else ""
+            source_str = imp.get("fwd_label", "")
+            implied_html += f"""
+            <article class="card implied-card {fill_cls}">
+                <header class="implied-header">
+                    <div class="implied-cb">{cb}</div>
+                    <div class="implied-label">Probability of next move</div>
+                </header>
+                <div class="implied-body">
+                    <div class="implied-dir {pct_cls}">{dir_label} {display_pct}%</div>
+                    <div class="implied-rates">
+                        Current: {imp['current_rate']}% → Fwd: {imp['forward_rate']}% ({imp['spread_bp']:+.1f}bp)
+                    </div>
+                    <div class="implied-meta">
+                        {next_mtg_str}{source_str}
+                    </div>
+                </div>
+            </article>
+            """
+
+    # ── Alert Cards (0-7 days) ──
+    alert_html = ""
+    real_alerts = [a for a in alerts if a.get("days_away", 999) < 998]
+    struct_alerts = [a for a in alerts if a.get("days_away", 999) >= 998]
+    if not real_alerts and not struct_alerts:
+        alert_html = "✓ No high-impact events in the next 7 days affecting your portfolio."
+    else:
+        for a in sorted(real_alerts + struct_alerts, key=lambda x: x["days_away"]):
+            pairs_str = " ".join(f"{p}" for p in a["pairs"])
+            bots_str = " ".join(f"{b}" for b in a["bots"])
+            fc_str = f"Forecast: {a['forecast']}" if a.get("forecast") else ""
+            pr_str = f"Prev: {a['previous']}" if a.get("previous") else ""
+            pause_html = f"{a['pause_rec']}" if a.get("pause_rec") else ""
+            score_str = f"Score {a.get('score', 0)}/100"
+            alert_html += f"""
+            <article class="card alert-card {severity_class(a['severity'])}">
+                <header class="alert-header">
+                    <div class="alert-cb">{a['cb']}</div>
+                    <div class="alert-sev">{a['severity'].upper()}</div>
+                    <div class="alert-score">{score_str}</div>
+                </header>
+                <div class="alert-body">
+                    <div class="alert-title">{a['event']}</div>
+                    <div class="alert-date">📅 {a['date']}</div>
+                    <div class="alert-forecast">{fc_str}{pr_str}</div>
+                    <div class="alert-pairs">Pairs at risk: {pairs_str}</div>
+                    <div class="alert-bots">Exposed bots: {bots_str}</div>
+                    <div class="alert-pause">{pause_html}</div>
+                </div>
+            </article>
+            """
+
+    # ── Event Calendar ──
+    cal_rows = ""
+    shown = 0
+    now_utc = datetime.now(timezone.utc)
+    for e in events[:40]:
+        if not e["date"]:
+            continue
+        # Skip events that have already passed
+        if e["date"] < now_utc - timedelta(hours=1):
+            continue
+        impact_cls = "imp-high" if e["impact"] == "high" else "imp-med"
+        cb_affected = any(
+            e["cb"] in PAIR_CB_MAP.get(p, [])
+            for bot in PORTFOLIO.values()
+            for p in bot["pairs"]
+        )
+        row_cls = "row-highlight" if cb_affected else ""
+        is_past = e["date"] < now_utc
+        if e["actual"]:
+            actual_str = f"{e['actual']}"
+        elif is_past:
+            actual_str = "–"
+        else:
+            actual_str = "pending"
+        cal_rows += f"""
+        <tr class="{row_cls}">
+            <td>{e['date'].strftime('%a %b %d') if e['date'] else '–'}</td>
+            <td>{e['date'].strftime('%H:%M') if e['date'] else '–'}</td>
+            <td>{e['country']}</td>
+            <td>{e['title']}</td>
+            <td class="{impact_cls}">{e['impact'].upper()}</td>
+            <td>{e['forecast'] or '–'}</td>
+            <td>{e['previous'] or '–'}</td>
+            <td>{actual_str}</td>
+        </tr>
+        """
+        shown += 1
+
+    if not shown:
+        cal_rows = (
+            "No events loaded this run — Forex Factory feed may be temporarily unavailable. "
+            "Data will appear on the next scheduled refresh."
+        )
+
+    # ── Portfolio Pair Map ──
+    pair_rows = ""
+    for pair in ALL_PAIRS:
+        cbs = PAIR_CB_MAP.get(pair, [])
+        bots = [bot for bot, cfg in PORTFOLIO.items() if pair in cfg["pairs"]]
+        has_alert = any(a for a in alerts if pair in a["pairs"] and a["days_away"] < 999)
+        risk_cls = "risk-alert" if has_alert else "risk-ok"
+        cbs_html = " ".join(f"{c}" for c in cbs)
+        bots_html = " ".join(f"{b}" for b in bots)
+        warn_icon = "⚠️" if has_alert else "✓"
+        pair_rows += f"""
+        <tr class="{risk_cls}">
+            <td>{pair}</td>
+            <td>{cbs_html}</td>
+            <td>{bots_html}</td>
+            <td>{warn_icon}</td>
+        </tr>
+        """
+
+    # ── Bot risk banner (NEW) ──
+    # Build a simple line like: Control 42/68 · Jet 75/90 · ...
+    parts = []
+    for bot, scores in bot_risk.items():
+        parts.append(f"{bot} {scores['24h']}/{scores['72h']}")
+    banner_text = " · ".join(parts) if parts else "No active macro risk computed."
+    risk_banner_html = f"""
+    <section class="risk-banner">
+        <div class="risk-title">Today's macro risk (24h/72h):</div>
+        <div class="risk-values">{banner_text}</div>
+    </section>
+    """
+
+    # ── Full HTML ──
+    html = f"""<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="utf-8" />
+    <title>Macro Dashboard — FX Bot Portfolio</title>
+    <meta name="description" content="Macro intel dashboard for an algorithmic FX portfolio — central bank policy, market-implied moves, and high-impact events mapped to active bots." />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="generated-at" content="{now_ts}" />
+    <style>
+        /* (keep your existing CSS here; omitted for brevity in this snippet) */
+    </style>
+</head>
+<body>
+    <main class="layout">
+        <header class="topbar">
+            <div class="topbar-left">
+                <h1>Macro Intel Dashboard</h1>
+                <p>Central bank policy &amp; macro risk overlay for your FX bots</p>
+            </div>
+            <div class="topbar-right">
+                <div class="ts-label">Last updated (UTC)</div>
+                <div class="ts-value">{now_str}</div>
+            </div>
+        </header>
+
+        {risk_banner_html}
+
+        <section class="grid cb-grid">
+            <h2>Central Bank Policy Rates</h2>
+            <div class="cb-grid-inner">
+                {cb_cards_html}
+            </div>
+        </section>
+
+        <section class="grid implied-grid">
+            <h2>📊 Market-Implied Rate Move Probability</h2>
+            <div class="implied-grid-inner">
+                {implied_html}
+            </div>
+        </section>
+
+        <section class="grid alerts-grid">
+            <h2>⚠ Portfolio Volatility Alerts — Next 7 Days</h2>
+            <div class="alerts-grid-inner">
+                {alert_html}
+            </div>
+        </section>
+
+        <section class="grid exposure-grid">
+            <h2>Portfolio Pair Exposure Map</h2>
+            <table class="exposure-table">
+                <thead>
+                    <tr>
+                        <th>Pair</th>
+                        <th>Central Banks</th>
+                        <th>Active Bots</th>
+                        <th>Alert</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {pair_rows}
+                </tbody>
+            </table>
+        </section>
+
+        <section class="grid calendar-grid">
+            <h2>High-Impact Economic Calendar — Next 14 Days</h2>
+            <table class="calendar-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Time (UTC)</th>
+                        <th>Country</th>
+                        <th>Event</th>
+                        <th>Impact</th>
+                        <th>Forecast</th>
+                        <th>Previous</th>
+                        <th>Actual</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {cal_rows}
+                </tbody>
+            </table>
+        </section>
+    </main>
+</body>
+</html>
+"""
+    return html
+
+
+# ── Main ───────────────────────────────────────────────────────────────────────
+
+def main():
+    print(f"[{datetime.now().strftime('%H:%M:%S')}] Starting macro dashboard generation...")
+
+    # 1. Fetch CB rates — try FRED candidates, then rateprobability.com as fallback
+    print(" Fetching central bank rates from FRED...")
+    cb_rates = {}
+    rp_slugs = {"FED": "fed", "ECB": "ecb", "BOE": "boe", "BOJ": "boj", "BOC": "boc", "RBA": "rba"}
+    for cb, info in FRED_SERIES.items():
+        result = None
+        for sid in info["ids"]:
+            print(f" → {cb} trying {sid}")
+            result = fetch_fred_series(sid)
+            if result:
+                print(f" → ✓ {cb} loaded from {sid}: {result['current']}%")
+                break
+        if not result:
+            # Fallback: pull current rate from rateprobability.com
+            slug = rp_slugs.get(cb)
+            if slug:
+                print(f" → {cb} FRED failed — trying rateprobability.com...")
+                rp = fetch_rateprobability(slug)
+                result = _rp_to_cb_rate(rp)
+                if result:
+                    print(f" → ✓ {cb} loaded from rateprobability.com: {result['current']}%")
+        cb_rates[cb] = result
+    loaded = sum(1 for v in cb_rates.values() if v)
+    print(f" Loaded {loaded}/{len(FRED_SERIES)} CB rates")
+
+    # 2. Fetch market-implied rate changes
+    print(" Fetching market-implied rate probabilities...")
+    implied_moves = fetch_implied_rate_changes(cb_rates)
+    print(f" Loaded {len(implied_moves)} implied rate estimates")
+
+    # 3. Fetch calendar (this week + next week = ~14 days)
+    print(" Fetching Forex Factory calendar (2-week window)...")
+    events = fetch_forex_factory_calendar()
+    print(f" Found {len(events)} high/medium-impact events")
+
+    # 4. Compute alerts and outlook
+    alerts = compute_alerts(cb_rates, events, implied_moves)
+    print(f" Generated {len(alerts)} alerts")
+
+    # 4b. Compute bot risk indices (NEW)
+    bot_risk = _bot_risk_indices(alerts)
+    print(" Bot risk indices:", bot_risk)
+
+    # 5. Generate HTML
+    print(" Generating HTML dashboard...")
+    html = generate_html(cb_rates, events, alerts, implied_moves, bot_risk)
+
+    # 6. Write output
+    out_path = os.path.join(os.path.dirname(__file__), "docs", "index.html")
+    os.makedirs(os.path.dirname(out_path), exist_ok=True)
+    with open(out_path, "w", encoding="utf-8") as f:
+        f.write(html)
+
+    print(f" ✓ Dashboard written to {out_path}")
+    print(f"[{datetime.now().strftime('%H:%M:%S')}] Done.")
+
+
+if __name__ == "__main__":
+    main()
