@@ -785,7 +785,8 @@ def generate_html(cb_rates, events, cb_rates_raw=None, implied_moves=None, alert
     for e in events:
         if not e.get("date"):
             continue
-        if e["date"] < now_utc - timedelta(hours=1):
+        # Show events from today onwards (allow up to 1 day in past for same-day events)
+        if e["date"] < now_utc - timedelta(hours=12):
             continue
         day_key = e["date"].strftime("%A · %B %d")
         day_groups[day_key].append(e)
@@ -900,7 +901,7 @@ def generate_html(cb_rates, events, cb_rates_raw=None, implied_moves=None, alert
     from collections import defaultdict as dd2
     by_country = dd2(list)
     for e in events:
-        if not e.get("date") or e["date"] < now_utc - timedelta(hours=1):
+        if not e.get("date") or e["date"] < now_utc - timedelta(hours=12):
             continue
         by_country[e.get("country","ALL")].append(e)
 
@@ -983,23 +984,28 @@ def generate_html(cb_rates, events, cb_rates_raw=None, implied_moves=None, alert
         prob = imp["probability"]
         if prob < 25:
             continue
-        pairs_affected = [p for p, cbs in PAIR_CB_MAP.items() if cb in cbs]
-        green = "color:var(--accent-green)"
-        red   = "color:var(--accent-red)"
-        muted = "color:var(--text-muted)"
+        s_green = "color:var(--accent-green)"
+        s_red   = "color:var(--accent-red)"
+        s_muted = "color:var(--text-muted)"
         if direction == "hike":
-            eq,bd,usd_col,gold,fx = red,"↑ Yields",green,"↓","AUD/CAD ↑" if cb=="RBA" else "JPY ↓" if cb=="BOJ" else "USD ↑" if cb=="FED" else "–"
-            eq_c,bd_c,gold_c = red,red,red
+            eq_txt,  eq_s   = "↓ Risk-off",  s_red
+            bd_txt,  bd_s   = "↑ Yields up", s_red
+            usd_txt, usd_s  = ("↑ Stronger", s_green) if cb=="FED" else ("Neutral", s_muted)
+            gold_txt,gold_s = "↓ Pressured", s_red
+            fx_txt          = "AUD ↑" if cb=="RBA" else "JPY ↑" if cb=="BOJ" else "USD ↑" if cb=="FED" else "CAD ↑" if cb=="BOC" else "EUR ↑" if cb=="ECB" else "GBP ↑"
         else:
-            eq,bd,usd_col,gold,fx = "↑ Rally","↑ Bonds bid","↓","↑ Bid","GBP ↓" if cb=="BOE" else "CAD ↓" if cb=="BOC" else "EUR ↓" if cb=="ECB" else "–"
-            eq_c,bd_c,gold_c = green,green,green
+            eq_txt,  eq_s   = "↑ Rally",    s_green
+            bd_txt,  bd_s   = "↑ Bonds bid",s_green
+            usd_txt, usd_s  = ("↓ Weaker",  s_red) if cb=="FED" else ("Neutral", s_muted)
+            gold_txt,gold_s = "↑ Bid",      s_green
+            fx_txt          = "GBP ↓" if cb=="BOE" else "CAD ↓" if cb=="BOC" else "EUR ↓" if cb=="ECB" else "AUD ↓" if cb=="RBA" else "JPY ↓" if cb=="BOJ" else "USD ↓"
         matrix_rows += f"""<tr>
-          <td class="td-name">{CB_FLAGS.get(cb,"")} {CB_FULLNAMES.get(cb,cb)} {direction} ({prob}%)</td>
-          <td style="{eq_c}">{eq}</td>
-          <td style="{bd_c}">{bd}</td>
-          <td style="{green if direction=='hike' and cb=='FED' else red if direction=='cut' and cb=='FED' else muted}">{usd_col}</td>
-          <td style="{gold_c}">{gold}</td>
-          <td style="color:var(--accent-purple)">{fx}</td>
+          <td class="td-name">{CB_FLAGS.get(cb,"")} {CB_FULLNAMES.get(cb,cb)} {direction.upper()} ({prob}%)</td>
+          <td style="{eq_s}">{eq_txt}</td>
+          <td style="{bd_s}">{bd_txt}</td>
+          <td style="{usd_s}">{usd_txt}</td>
+          <td style="{gold_s}">{gold_txt}</td>
+          <td style="color:var(--accent-purple)">{fx_txt}</td>
         </tr>"""
 
     matrix_html = ""
@@ -1103,30 +1109,6 @@ body {{
   font-family: monospace;
 }}
 .auto-refresh {{ color: var(--accent-green); font-size: 10px; }}
-
-/* ── Tabs ── */
-.tabs {{
-  display: flex;
-  gap: 2px;
-  padding: 0 24px;
-  border-bottom: 1px solid var(--border);
-}}
-.tab-btn {{
-  padding: 10px 18px;
-  background: none;
-  border: none;
-  color: var(--text-secondary);
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 500;
-  border-bottom: 2px solid transparent;
-  transition: all 0.15s;
-  margin-bottom: -1px;
-}}
-.tab-btn:hover {{ color: var(--text-primary); }}
-.tab-btn.active {{ color: var(--accent-blue); border-bottom-color: var(--accent-blue); }}
-.tab-panel {{ display: none; padding: 20px 24px 32px; }}
-.tab-panel.active {{ display: block; }}
 
 /* ── Summary row ── */
 .summary-row {{
@@ -1406,63 +1388,39 @@ tr:hover td {{ background: rgba(255,255,255,0.025); }}
   </div>
 </div>
 
-<div class="tabs">
-  <button class="tab-btn active"  onclick="switchTab('overview')">📊 Overview</button>
-  <button class="tab-btn"         onclick="switchTab('central-banks')">🏦 Central Banks</button>
-  <button class="tab-btn"         onclick="switchTab('calendar')">📅 Event Calendar</button>
-  <button class="tab-btn"         onclick="switchTab('data-releases')">📈 Data Releases</button>
-  <button class="tab-btn"         onclick="switchTab('risk-radar')">🎯 Risk Radar</button>
-  <button class="tab-btn"         onclick="switchTab('portfolio')">🤖 Portfolio</button>
-</div>
+<main style="max-width:1400px;margin:0 auto;padding:20px 24px 40px">
 
-<!-- TAB 1: OVERVIEW -->
-<div id="tab-overview" class="tab-panel active">
+  <!-- ── Summary Stats ── -->
   {summary_html}
-  <div class="section-title">📡 Portfolio Volatility Alerts — Next 7 Days</div>
-  <div class="event-cards" style="margin-bottom:24px">
+
+  <!-- ── Central Bank Rates ── -->
+  <div class="section-title" style="margin-bottom:12px">🏦 Central Bank Policy Rates</div>
+  <div class="cb-grid" style="margin-bottom:32px">
+    {cb_cards_html}
+  </div>
+
+  <!-- ── Portfolio Volatility Alerts ── -->
+  <div class="section-title" style="margin-bottom:12px">📡 Portfolio Volatility Alerts — Next 7 Days</div>
+  <div class="event-cards" style="margin-bottom:32px">
     {alert_cards}
   </div>
-  <div class="section-title">🏦 Central Bank Rate Snapshot</div>
-  <div class="cb-grid">
-    {cb_cards_html}
-  </div>
-</div>
 
-<!-- TAB 2: CENTRAL BANKS -->
-<div id="tab-central-banks" class="tab-panel">
-  <div class="section-title">🏦 Central Bank Rate Cards</div>
-  <div class="cb-grid">
-    {cb_cards_html}
-  </div>
-</div>
-
-<!-- TAB 3: CALENDAR -->
-<div id="tab-calendar" class="tab-panel">
-  {summary_html}
-  <div class="timeline">
+  <!-- ── Event Calendar ── -->
+  <div class="section-title" style="margin-bottom:12px">📅 Economic Calendar</div>
+  <div class="timeline" style="margin-bottom:32px">
     {timeline_html}
   </div>
-</div>
 
-<!-- TAB 4: DATA RELEASES -->
-<div id="tab-data-releases" class="tab-panel">
-  <div class="section-title">📈 Upcoming Economic Data Releases</div>
-  {data_releases_html}
-</div>
-
-<!-- TAB 5: RISK RADAR -->
-<div id="tab-risk-radar" class="tab-panel">
-  <div class="section-title">🎯 Risk Signals</div>
-  <div class="risk-grid">
+  <!-- ── Risk Radar ── -->
+  <div class="section-title" style="margin-bottom:12px">🎯 Risk Radar</div>
+  <div class="risk-grid" style="margin-bottom:32px">
     {risk_cards_html}
     {matrix_html}
   </div>
-</div>
 
-<!-- TAB 6: PORTFOLIO -->
-<div id="tab-portfolio" class="tab-panel">
-  <div class="section-title">🤖 Active Bot Pair Exposure</div>
-  <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden">
+  <!-- ── Portfolio Map ── -->
+  <div class="section-title" style="margin-bottom:12px">🤖 Active Bot Pair Exposure</div>
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:32px">
     <table>
       <thead><tr>
         <th>Pair</th><th>Central Banks</th><th>Active Bots</th><th style="text-align:center;width:70px">Alert</th>
@@ -1470,19 +1428,14 @@ tr:hover td {{ background: rgba(255,255,255,0.025); }}
       <tbody>{pair_rows}</tbody>
     </table>
   </div>
-</div>
+
+</main>
 
 <div class="footer">
   Macro Intel · Data: FRED · Forex Factory · rateprobability.com · Generated: {now_str} · Portfolio: {len(PORTFOLIO)} bots · {len(ALL_PAIRS)} pairs
 </div>
 
 <script>
-function switchTab(id) {{
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-  document.getElementById('tab-' + id).classList.add('active');
-  event.target.classList.add('active');
-}}
 function toggleDetail(card) {{
   const detail = card.querySelector('.event-detail');
   if (!detail) return;
