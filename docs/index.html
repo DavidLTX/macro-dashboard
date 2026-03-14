@@ -80,30 +80,6 @@ body {
 }
 .auto-refresh { color: var(--accent-green); font-size: 10px; }
 
-/* ── Tabs ── */
-.tabs {
-  display: flex;
-  gap: 2px;
-  padding: 0 24px;
-  border-bottom: 1px solid var(--border);
-}
-.tab-btn {
-  padding: 10px 18px;
-  background: none;
-  border: none;
-  color: var(--text-secondary);
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 500;
-  border-bottom: 2px solid transparent;
-  transition: all 0.15s;
-  margin-bottom: -1px;
-}
-.tab-btn:hover { color: var(--text-primary); }
-.tab-btn.active { color: var(--accent-blue); border-bottom-color: var(--accent-blue); }
-.tab-panel { display: none; padding: 20px 24px 32px; }
-.tab-panel.active { display: block; }
-
 /* ── Summary row ── */
 .summary-row {
   display: grid;
@@ -378,21 +354,13 @@ tr:hover td { background: rgba(255,255,255,0.025); }
   </div>
   <div class="header-timestamp">
     <div class="auto-refresh">● AUTO-REFRESHES HOURLY</div>
-    Sat Mar 14, 2026 · 01:07 UTC
+    Sat Mar 14, 2026 · 01:17 UTC
   </div>
 </div>
 
-<div class="tabs">
-  <button class="tab-btn active"  onclick="switchTab('overview')">📊 Overview</button>
-  <button class="tab-btn"         onclick="switchTab('central-banks')">🏦 Central Banks</button>
-  <button class="tab-btn"         onclick="switchTab('calendar')">📅 Event Calendar</button>
-  <button class="tab-btn"         onclick="switchTab('data-releases')">📈 Data Releases</button>
-  <button class="tab-btn"         onclick="switchTab('risk-radar')">🎯 Risk Radar</button>
-  <button class="tab-btn"         onclick="switchTab('portfolio')">🤖 Portfolio</button>
-</div>
+<main style="max-width:1400px;margin:0 auto;padding:20px 24px 40px">
 
-<!-- TAB 1: OVERVIEW -->
-<div id="tab-overview" class="tab-panel active">
+  <!-- ── Summary Stats ── -->
   
     <div class="summary-row">
       <div class="summary-card"><div class="val val-blue">6</div><div class="lbl">CBs Tracked</div></div>
@@ -401,265 +369,179 @@ tr:hover td { background: rgba(255,255,255,0.025); }
       <div class="summary-card"><div class="val val-yellow">12</div><div class="lbl">High-Impact Events</div></div>
       <div class="summary-card"><div class="val val-orange">0</div><div class="lbl">Bot Alerts (7d)</div></div>
     </div>
-  <div class="section-title">📡 Portfolio Volatility Alerts — Next 7 Days</div>
-  <div class="event-cards" style="margin-bottom:24px">
+
+  <!-- ── Central Bank Rates ── -->
+  <div class="section-title" style="margin-bottom:12px">🏦 Central Bank Policy Rates</div>
+  <div class="cb-grid" style="margin-bottom:32px">
+    
+        <div class="cb-card cb-cut">
+          <div class="cb-card-glow"></div>
+          <div class="cb-header">
+            <span class="cb-flag">🇺🇸</span>
+            <div>
+              <div class="cb-name">Federal Reserve</div>
+              <div class="cb-date">Mar 18, 2026</div>
+            </div>
+          </div>
+          <div class="cb-rate-row">
+            <div class="cb-current-rate">3.62%</div>
+            <div class="cb-rate-label">Fed Funds Rate</div>
+          </div>
+          <div class="cb-exp">Market: <span class="exp-val">◆ HOLD &nbsp;99%</span></div>
+          <span class="cb-bps bps-hold">-0.5bp implied</span>
+          <svg class="spark spark-down" viewBox="0 0 200 36" preserveAspectRatio="none"><polyline points="0,6 40,13 80,24 120,33 160,38 200,38" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <div class="cb-asof">as of 2026-02-01</div>
+        </div>
+        <div class="cb-card cb-hold">
+          <div class="cb-card-glow"></div>
+          <div class="cb-header">
+            <span class="cb-flag">🇪🇺</span>
+            <div>
+              <div class="cb-name">European Central Bank</div>
+              <div class="cb-date">Mar 19, 2026</div>
+            </div>
+          </div>
+          <div class="cb-rate-row">
+            <div class="cb-current-rate">2.00%</div>
+            <div class="cb-rate-label">Deposit Rate</div>
+          </div>
+          <div class="cb-exp">Market: <span class="exp-val">▲ HIKE &nbsp;5%</span></div>
+          <span class="cb-bps bps-hike">+1.4bp implied</span>
+          <svg class="spark spark-flat" viewBox="0 0 200 36" preserveAspectRatio="none"><polyline points="0,38 40,38 80,38 120,38 160,38 200,38" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <div class="cb-asof">as of 2026-03-13</div>
+        </div>
+        <div class="cb-card cb-hold">
+          <div class="cb-card-glow"></div>
+          <div class="cb-header">
+            <span class="cb-flag">🇬🇧</span>
+            <div>
+              <div class="cb-name">Bank of England</div>
+              <div class="cb-date">Mar 19, 2026</div>
+            </div>
+          </div>
+          <div class="cb-rate-row">
+            <div class="cb-current-rate">3.75%</div>
+            <div class="cb-rate-label">Base Rate</div>
+          </div>
+          <div class="cb-exp">Market: <span class="exp-val">◆ HOLD &nbsp;99%</span></div>
+          <span class="cb-bps bps-hold">-0.5bp implied</span>
+          <svg class="spark spark-flat" viewBox="0 0 200 36" preserveAspectRatio="none"><polyline points="0,13 40,6 80,9 120,30 160,38 200,34" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <div class="cb-asof">as of 2026-03-11</div>
+        </div>
+        <div class="cb-card cb-hike">
+          <div class="cb-card-glow"></div>
+          <div class="cb-header">
+            <span class="cb-flag">🇯🇵</span>
+            <div>
+              <div class="cb-name">Bank of Japan</div>
+              <div class="cb-date">Mar 19, 2026</div>
+            </div>
+          </div>
+          <div class="cb-rate-row">
+            <div class="cb-current-rate">0.75%</div>
+            <div class="cb-rate-label">Policy Rate</div>
+          </div>
+          <div class="cb-exp">Market: <span class="exp-val">▲ HIKE &nbsp;9%</span></div>
+          <span class="cb-bps bps-hike">+2.4bp implied</span>
+          <svg class="spark spark-up" viewBox="0 0 200 36" preserveAspectRatio="none"><polyline points="0,38 40,33 80,34 120,34 160,10 200,6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <div class="cb-asof">as of 2026-01-01</div>
+        </div>
+        <div class="cb-card cb-hold">
+          <div class="cb-card-glow"></div>
+          <div class="cb-header">
+            <span class="cb-flag">🇨🇦</span>
+            <div>
+              <div class="cb-name">Bank of Canada</div>
+              <div class="cb-date">Mar 18, 2026</div>
+            </div>
+          </div>
+          <div class="cb-rate-row">
+            <div class="cb-current-rate">2.25%</div>
+            <div class="cb-rate-label">Overnight Rate</div>
+          </div>
+          <div class="cb-exp">Market: <span class="exp-val">◆ HOLD &nbsp;100%</span></div>
+          <span class="cb-bps bps-hold">-0.2bp implied</span>
+          <svg class="spark spark-flat" viewBox="0 0 200 36" preserveAspectRatio="none"><polyline points="0,37 40,38 80,35 120,13 160,6 200,8" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <div class="cb-asof">as of 2026-03-14</div>
+        </div>
+        <div class="cb-card cb-hike">
+          <div class="cb-card-glow"></div>
+          <div class="cb-header">
+            <span class="cb-flag">🇦🇺</span>
+            <div>
+              <div class="cb-name">Reserve Bank of Australia</div>
+              <div class="cb-date">Mar 17, 2026</div>
+            </div>
+          </div>
+          <div class="cb-rate-row">
+            <div class="cb-current-rate">3.85%</div>
+            <div class="cb-rate-label">Cash Rate</div>
+          </div>
+          <div class="cb-exp">Market: <span class="exp-val">▲ HIKE &nbsp;62%</span></div>
+          <span class="cb-bps bps-hike">+15.5bp implied</span>
+          <svg class="spark spark-up" viewBox="0 0 200 36" preserveAspectRatio="none"><polyline points="0,30 40,34 80,38 120,24 160,15 200,6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <div class="cb-asof">as of 2026-01-01</div>
+        </div>
+  </div>
+
+  <!-- ── Portfolio Volatility Alerts ── -->
+  <div class="section-title" style="margin-bottom:12px">📡 Portfolio Volatility Alerts — Next 7 Days</div>
+  <div class="event-cards" style="margin-bottom:32px">
     <div class="no-data-msg" style="color:var(--accent-green)">✓ No high-impact events in the next 7 days affecting your portfolio pairs.</div>
   </div>
-  <div class="section-title">🏦 Central Bank Rate Snapshot</div>
-  <div class="cb-grid">
+
+  <!-- ── Event Calendar ── -->
+  <div class="section-title" style="margin-bottom:12px">📅 Economic Calendar</div>
+  <div class="timeline" style="margin-bottom:32px">
     
-        <div class="cb-card cb-cut">
-          <div class="cb-card-glow"></div>
-          <div class="cb-header">
-            <span class="cb-flag">🇺🇸</span>
-            <div>
-              <div class="cb-name">Federal Reserve</div>
-              <div class="cb-date">Mar 18, 2026</div>
+            <div class="day-group">
+              <div class="day-label"><div class="day-dot"></div>FRIDAY · MARCH 13</div>
+              <div class="event-cards">
+                <div class="event-card card-high" onclick="toggleDetail(this)">
+                  <div class="event-time">14:00 UTC</div>
+                  <div class="event-main">
+                    <div class="event-header">
+                      <span class="flag">🌐</span>
+                      <span class="event-name">JOLTS Job Openings</span>
+                      <span class="region-tag">US</span>
+                      <span class="rate-badge rate-watch">⚡ BOT PAIRS</span>
+                    </div>
+                    <div class="event-detail"><div class="detail-grid"><div class="detail-box"><div class="dlbl">Forecast</div><div class="dval expected">6.76M</div></div><div class="detail-box"><div class="dlbl">Previous</div><div class="dval prior">6.54M</div></div></div></div>
+                  </div>
+                  <div class="event-impact"><div class="impact-pip pip-high">H</div></div>
+                </div>
+                <div class="event-card card-medium" onclick="toggleDetail(this)">
+                  <div class="event-time">14:00 UTC</div>
+                  <div class="event-main">
+                    <div class="event-header">
+                      <span class="flag">🌐</span>
+                      <span class="event-name">Prelim UoM Consumer Sentiment</span>
+                      <span class="region-tag">US</span>
+                      <span class="rate-badge rate-watch">⚡ BOT PAIRS</span>
+                    </div>
+                    <div class="event-detail"><div class="detail-grid"><div class="detail-box"><div class="dlbl">Forecast</div><div class="dval expected">55.0</div></div><div class="detail-box"><div class="dlbl">Previous</div><div class="dval prior">57.3</div></div></div></div>
+                  </div>
+                  <div class="event-impact"><div class="impact-pip pip-medium">M</div></div>
+                </div>
+                <div class="event-card card-medium" onclick="toggleDetail(this)">
+                  <div class="event-time">14:00 UTC</div>
+                  <div class="event-main">
+                    <div class="event-header">
+                      <span class="flag">🌐</span>
+                      <span class="event-name">Prelim UoM Inflation Expectations</span>
+                      <span class="region-tag">US</span>
+                      <span class="rate-badge rate-watch">⚡ BOT PAIRS</span>
+                    </div>
+                    <div class="event-detail"><div class="detail-grid"><div class="detail-box"><div class="dlbl">Previous</div><div class="dval prior">3.5%</div></div></div></div>
+                  </div>
+                  <div class="event-impact"><div class="impact-pip pip-medium">M</div></div>
+                </div></div>
             </div>
-          </div>
-          <div class="cb-rate-row">
-            <div class="cb-current-rate">3.62%</div>
-            <div class="cb-rate-label">Fed Funds Rate</div>
-          </div>
-          <div class="cb-exp">Market: <span class="exp-val">◆ HOLD &nbsp;99%</span></div>
-          <span class="cb-bps bps-hold">-0.5bp implied</span>
-          <svg class="spark spark-down" viewBox="0 0 200 36" preserveAspectRatio="none"><polyline points="0,6 40,13 80,24 120,33 160,38 200,38" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          <div class="cb-asof">as of 2026-02-01</div>
-        </div>
-        <div class="cb-card cb-hold">
-          <div class="cb-card-glow"></div>
-          <div class="cb-header">
-            <span class="cb-flag">🇪🇺</span>
-            <div>
-              <div class="cb-name">European Central Bank</div>
-              <div class="cb-date">Mar 19, 2026</div>
-            </div>
-          </div>
-          <div class="cb-rate-row">
-            <div class="cb-current-rate">2.00%</div>
-            <div class="cb-rate-label">Deposit Rate</div>
-          </div>
-          <div class="cb-exp">Market: <span class="exp-val">▲ HIKE &nbsp;5%</span></div>
-          <span class="cb-bps bps-hike">+1.4bp implied</span>
-          <svg class="spark spark-flat" viewBox="0 0 200 36" preserveAspectRatio="none"><polyline points="0,38 40,38 80,38 120,38 160,38 200,38" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          <div class="cb-asof">as of 2026-03-13</div>
-        </div>
-        <div class="cb-card cb-hold">
-          <div class="cb-card-glow"></div>
-          <div class="cb-header">
-            <span class="cb-flag">🇬🇧</span>
-            <div>
-              <div class="cb-name">Bank of England</div>
-              <div class="cb-date">Mar 19, 2026</div>
-            </div>
-          </div>
-          <div class="cb-rate-row">
-            <div class="cb-current-rate">3.75%</div>
-            <div class="cb-rate-label">Base Rate</div>
-          </div>
-          <div class="cb-exp">Market: <span class="exp-val">◆ HOLD &nbsp;99%</span></div>
-          <span class="cb-bps bps-hold">-0.5bp implied</span>
-          <svg class="spark spark-flat" viewBox="0 0 200 36" preserveAspectRatio="none"><polyline points="0,13 40,6 80,9 120,30 160,38 200,34" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          <div class="cb-asof">as of 2026-03-11</div>
-        </div>
-        <div class="cb-card cb-hike">
-          <div class="cb-card-glow"></div>
-          <div class="cb-header">
-            <span class="cb-flag">🇯🇵</span>
-            <div>
-              <div class="cb-name">Bank of Japan</div>
-              <div class="cb-date">Mar 19, 2026</div>
-            </div>
-          </div>
-          <div class="cb-rate-row">
-            <div class="cb-current-rate">0.75%</div>
-            <div class="cb-rate-label">Policy Rate</div>
-          </div>
-          <div class="cb-exp">Market: <span class="exp-val">▲ HIKE &nbsp;9%</span></div>
-          <span class="cb-bps bps-hike">+2.4bp implied</span>
-          <svg class="spark spark-up" viewBox="0 0 200 36" preserveAspectRatio="none"><polyline points="0,38 40,33 80,34 120,34 160,10 200,6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          <div class="cb-asof">as of 2026-01-01</div>
-        </div>
-        <div class="cb-card cb-hold">
-          <div class="cb-card-glow"></div>
-          <div class="cb-header">
-            <span class="cb-flag">🇨🇦</span>
-            <div>
-              <div class="cb-name">Bank of Canada</div>
-              <div class="cb-date">Mar 18, 2026</div>
-            </div>
-          </div>
-          <div class="cb-rate-row">
-            <div class="cb-current-rate">2.25%</div>
-            <div class="cb-rate-label">Overnight Rate</div>
-          </div>
-          <div class="cb-exp">Market: <span class="exp-val">◆ HOLD &nbsp;100%</span></div>
-          <span class="cb-bps bps-hold">-0.2bp implied</span>
-          <svg class="spark spark-flat" viewBox="0 0 200 36" preserveAspectRatio="none"><polyline points="0,37 40,38 80,35 120,13 160,6 200,8" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          <div class="cb-asof">as of 2026-03-14</div>
-        </div>
-        <div class="cb-card cb-hike">
-          <div class="cb-card-glow"></div>
-          <div class="cb-header">
-            <span class="cb-flag">🇦🇺</span>
-            <div>
-              <div class="cb-name">Reserve Bank of Australia</div>
-              <div class="cb-date">Mar 17, 2026</div>
-            </div>
-          </div>
-          <div class="cb-rate-row">
-            <div class="cb-current-rate">3.85%</div>
-            <div class="cb-rate-label">Cash Rate</div>
-          </div>
-          <div class="cb-exp">Market: <span class="exp-val">▲ HIKE &nbsp;62%</span></div>
-          <span class="cb-bps bps-hike">+15.5bp implied</span>
-          <svg class="spark spark-up" viewBox="0 0 200 36" preserveAspectRatio="none"><polyline points="0,30 40,34 80,38 120,24 160,15 200,6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          <div class="cb-asof">as of 2026-01-01</div>
-        </div>
   </div>
-</div>
 
-<!-- TAB 2: CENTRAL BANKS -->
-<div id="tab-central-banks" class="tab-panel">
-  <div class="section-title">🏦 Central Bank Rate Cards</div>
-  <div class="cb-grid">
-    
-        <div class="cb-card cb-cut">
-          <div class="cb-card-glow"></div>
-          <div class="cb-header">
-            <span class="cb-flag">🇺🇸</span>
-            <div>
-              <div class="cb-name">Federal Reserve</div>
-              <div class="cb-date">Mar 18, 2026</div>
-            </div>
-          </div>
-          <div class="cb-rate-row">
-            <div class="cb-current-rate">3.62%</div>
-            <div class="cb-rate-label">Fed Funds Rate</div>
-          </div>
-          <div class="cb-exp">Market: <span class="exp-val">◆ HOLD &nbsp;99%</span></div>
-          <span class="cb-bps bps-hold">-0.5bp implied</span>
-          <svg class="spark spark-down" viewBox="0 0 200 36" preserveAspectRatio="none"><polyline points="0,6 40,13 80,24 120,33 160,38 200,38" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          <div class="cb-asof">as of 2026-02-01</div>
-        </div>
-        <div class="cb-card cb-hold">
-          <div class="cb-card-glow"></div>
-          <div class="cb-header">
-            <span class="cb-flag">🇪🇺</span>
-            <div>
-              <div class="cb-name">European Central Bank</div>
-              <div class="cb-date">Mar 19, 2026</div>
-            </div>
-          </div>
-          <div class="cb-rate-row">
-            <div class="cb-current-rate">2.00%</div>
-            <div class="cb-rate-label">Deposit Rate</div>
-          </div>
-          <div class="cb-exp">Market: <span class="exp-val">▲ HIKE &nbsp;5%</span></div>
-          <span class="cb-bps bps-hike">+1.4bp implied</span>
-          <svg class="spark spark-flat" viewBox="0 0 200 36" preserveAspectRatio="none"><polyline points="0,38 40,38 80,38 120,38 160,38 200,38" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          <div class="cb-asof">as of 2026-03-13</div>
-        </div>
-        <div class="cb-card cb-hold">
-          <div class="cb-card-glow"></div>
-          <div class="cb-header">
-            <span class="cb-flag">🇬🇧</span>
-            <div>
-              <div class="cb-name">Bank of England</div>
-              <div class="cb-date">Mar 19, 2026</div>
-            </div>
-          </div>
-          <div class="cb-rate-row">
-            <div class="cb-current-rate">3.75%</div>
-            <div class="cb-rate-label">Base Rate</div>
-          </div>
-          <div class="cb-exp">Market: <span class="exp-val">◆ HOLD &nbsp;99%</span></div>
-          <span class="cb-bps bps-hold">-0.5bp implied</span>
-          <svg class="spark spark-flat" viewBox="0 0 200 36" preserveAspectRatio="none"><polyline points="0,13 40,6 80,9 120,30 160,38 200,34" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          <div class="cb-asof">as of 2026-03-11</div>
-        </div>
-        <div class="cb-card cb-hike">
-          <div class="cb-card-glow"></div>
-          <div class="cb-header">
-            <span class="cb-flag">🇯🇵</span>
-            <div>
-              <div class="cb-name">Bank of Japan</div>
-              <div class="cb-date">Mar 19, 2026</div>
-            </div>
-          </div>
-          <div class="cb-rate-row">
-            <div class="cb-current-rate">0.75%</div>
-            <div class="cb-rate-label">Policy Rate</div>
-          </div>
-          <div class="cb-exp">Market: <span class="exp-val">▲ HIKE &nbsp;9%</span></div>
-          <span class="cb-bps bps-hike">+2.4bp implied</span>
-          <svg class="spark spark-up" viewBox="0 0 200 36" preserveAspectRatio="none"><polyline points="0,38 40,33 80,34 120,34 160,10 200,6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          <div class="cb-asof">as of 2026-01-01</div>
-        </div>
-        <div class="cb-card cb-hold">
-          <div class="cb-card-glow"></div>
-          <div class="cb-header">
-            <span class="cb-flag">🇨🇦</span>
-            <div>
-              <div class="cb-name">Bank of Canada</div>
-              <div class="cb-date">Mar 18, 2026</div>
-            </div>
-          </div>
-          <div class="cb-rate-row">
-            <div class="cb-current-rate">2.25%</div>
-            <div class="cb-rate-label">Overnight Rate</div>
-          </div>
-          <div class="cb-exp">Market: <span class="exp-val">◆ HOLD &nbsp;100%</span></div>
-          <span class="cb-bps bps-hold">-0.2bp implied</span>
-          <svg class="spark spark-flat" viewBox="0 0 200 36" preserveAspectRatio="none"><polyline points="0,37 40,38 80,35 120,13 160,6 200,8" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          <div class="cb-asof">as of 2026-03-14</div>
-        </div>
-        <div class="cb-card cb-hike">
-          <div class="cb-card-glow"></div>
-          <div class="cb-header">
-            <span class="cb-flag">🇦🇺</span>
-            <div>
-              <div class="cb-name">Reserve Bank of Australia</div>
-              <div class="cb-date">Mar 17, 2026</div>
-            </div>
-          </div>
-          <div class="cb-rate-row">
-            <div class="cb-current-rate">3.85%</div>
-            <div class="cb-rate-label">Cash Rate</div>
-          </div>
-          <div class="cb-exp">Market: <span class="exp-val">▲ HIKE &nbsp;62%</span></div>
-          <span class="cb-bps bps-hike">+15.5bp implied</span>
-          <svg class="spark spark-up" viewBox="0 0 200 36" preserveAspectRatio="none"><polyline points="0,30 40,34 80,38 120,24 160,15 200,6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          <div class="cb-asof">as of 2026-01-01</div>
-        </div>
-  </div>
-</div>
-
-<!-- TAB 3: CALENDAR -->
-<div id="tab-calendar" class="tab-panel">
-  
-    <div class="summary-row">
-      <div class="summary-card"><div class="val val-blue">6</div><div class="lbl">CBs Tracked</div></div>
-      <div class="summary-card"><div class="val val-red">1</div><div class="lbl">Hike Signals</div></div>
-      <div class="summary-card"><div class="val val-green">0</div><div class="lbl">Cut Signals</div></div>
-      <div class="summary-card"><div class="val val-yellow">12</div><div class="lbl">High-Impact Events</div></div>
-      <div class="summary-card"><div class="val val-orange">0</div><div class="lbl">Bot Alerts (7d)</div></div>
-    </div>
-  <div class="timeline">
-    <div class="no-data-msg">No upcoming events — calendar feed will refresh on next scheduled run.</div>
-  </div>
-</div>
-
-<!-- TAB 4: DATA RELEASES -->
-<div id="tab-data-releases" class="tab-panel">
-  <div class="section-title">📈 Upcoming Economic Data Releases</div>
-  <div class="no-data-msg">No upcoming data releases in the calendar feed.</div>
-</div>
-
-<!-- TAB 5: RISK RADAR -->
-<div id="tab-risk-radar" class="tab-panel">
-  <div class="section-title">🎯 Risk Signals</div>
-  <div class="risk-grid">
+  <!-- ── Risk Radar ── -->
+  <div class="section-title" style="margin-bottom:12px">🎯 Risk Radar</div>
+  <div class="risk-grid" style="margin-bottom:32px">
     
         <div class="risk-card">
           <div class="risk-header"><div class="risk-icon">🏦</div>
@@ -683,23 +565,21 @@ tr:hover td { background: rgba(255,255,255,0.025); }
                 <th>Scenario</th><th>Equities</th><th>Bonds</th><th>USD</th><th>Gold</th><th>FX Pair</th>
               </tr></thead>
               <tbody><tr>
-          <td class="td-name">🇦🇺 Reserve Bank of Australia hike (62%)</td>
-          <td style="color:var(--accent-red)">color:var(--accent-red)</td>
-          <td style="color:var(--accent-red)">↑ Yields</td>
-          <td style="color:var(--text-muted)">color:var(--accent-green)</td>
-          <td style="color:var(--accent-red)">↓</td>
-          <td style="color:var(--accent-purple)">AUD/CAD ↑</td>
+          <td class="td-name">🇦🇺 Reserve Bank of Australia HIKE (62%)</td>
+          <td style="color:var(--accent-red)">↓ Risk-off</td>
+          <td style="color:var(--accent-red)">↑ Yields up</td>
+          <td style="color:var(--text-muted)">Neutral</td>
+          <td style="color:var(--accent-red)">↓ Pressured</td>
+          <td style="color:var(--accent-purple)">AUD ↑</td>
         </tr></tbody>
             </table>
           </div>
         </div>
   </div>
-</div>
 
-<!-- TAB 6: PORTFOLIO -->
-<div id="tab-portfolio" class="tab-panel">
-  <div class="section-title">🤖 Active Bot Pair Exposure</div>
-  <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden">
+  <!-- ── Portfolio Map ── -->
+  <div class="section-title" style="margin-bottom:12px">🤖 Active Bot Pair Exposure</div>
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:32px">
     <table>
       <thead><tr>
         <th>Pair</th><th>Central Banks</th><th>Active Bots</th><th style="text-align:center;width:70px">Alert</th>
@@ -743,19 +623,14 @@ tr:hover td { background: rgba(255,255,255,0.025); }
         </tr></tbody>
     </table>
   </div>
-</div>
+
+</main>
 
 <div class="footer">
-  Macro Intel · Data: FRED · Forex Factory · rateprobability.com · Generated: Sat Mar 14, 2026 · 01:07 UTC · Portfolio: 4 bots · 6 pairs
+  Macro Intel · Data: FRED · Forex Factory · rateprobability.com · Generated: Sat Mar 14, 2026 · 01:17 UTC · Portfolio: 4 bots · 6 pairs
 </div>
 
 <script>
-function switchTab(id) {
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-  document.getElementById('tab-' + id).classList.add('active');
-  event.target.classList.add('active');
-}
 function toggleDetail(card) {
   const detail = card.querySelector('.event-detail');
   if (!detail) return;
