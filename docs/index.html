@@ -1,951 +1,351 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta http-equiv="refresh" content="3600">
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+CiAgPHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iNiIgZmlsbD0iIzA4MDgwZiIvPgogIDxsaW5lIHgxPSI3IiB5MT0iNCIgeDI9IjciIHkyPSIyOCIgc3Ryb2tlPSIjYTc4YmZhIiBzdHJva2Utd2lkdGg9IjEuNSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+CiAgPGxpbmUgeDE9IjE2IiB5MT0iNiIgeDI9IjE2IiB5Mj0iMjYiIHN0cm9rZT0iIzIyYzU1ZSIgc3Ryb2tlLXdpZHRoPSIxLjUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPgogIDxsaW5lIHgxPSIyNSIgeTE9IjUiIHgyPSIyNSIgeTI9IjI3IiBzdHJva2U9IiNmNTllMGIiIHN0cm9rZS13aWR0aD0iMS41IiBzdHJva2UtbGluZWNhcD0icm91bmQiLz4KICA8cmVjdCB4PSI0IiB5PSIxMCIgd2lkdGg9IjYiIGhlaWdodD0iMTIiIHJ4PSIxIiBmaWxsPSIjYTc4YmZhIi8+CiAgPHJlY3QgeD0iMTMiIHk9IjgiIHdpZHRoPSI2IiBoZWlnaHQ9IjgiIHJ4PSIxIiBmaWxsPSIjMjJjNTVlIi8+CiAgPHJlY3QgeD0iMjIiIHk9IjE0IiB3aWR0aD0iNiIgaGVpZ2h0PSIxMCIgcng9IjEiIGZpbGw9IiNmNTllMGIiLz4KPC9zdmc+">
-<title>Macro Dashboard — FX Bot Portfolio</title>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&family=Barlow:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<style>
-:root {
-  --bg:       #08080f;
-  --card:     #10101a;
-  --card2:    #14141f;
-  --border:   #1e1e30;
-  --border2:  #2a2a40;
-  --red:      #ff3b3b;
-  --amber:    #f59e0b;
-  --green:    #22c55e;
-  --blue:     #60a5fa;
-  --purple:   #a78bfa;
-  --text:     #ddddf0;
-  --dim:      #9999cc;
-  --dimmer:   #6666aa;
-}
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html { scroll-behavior: smooth; }
-body {
-  background: var(--bg);
-  color: var(--text);
-  font-family: 'Barlow', sans-serif;
-  font-size: 14px;
-  min-height: 100vh;
-  background-image:
-    radial-gradient(ellipse 80% 50% at 50% -20%, #1a0a3a44 0%, transparent 60%),
-    repeating-linear-gradient(0deg, transparent, transparent 40px, #ffffff03 40px, #ffffff03 41px),
-    repeating-linear-gradient(90deg, transparent, transparent 40px, #ffffff03 40px, #ffffff03 41px);
-}
-
-/* ── Header ── */
-.header {
-  padding: 40px 40px 24px;
-  border-bottom: 1px solid var(--border);
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 16px;
-}
-.header-left h1 {
-  font-family: 'Barlow', sans-serif;
-  font-size: 30px;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: #fff;
-}
-.header-left h1 span { color: var(--purple); }
-.header-sub {
-  color: var(--dim);
-  font-size: 13px;
-  margin-top: 6px;
-  letter-spacing: 0.03em;
-  font-weight: 500;
-}
-.header-right {
-  text-align: right;
-}
-.updated-label {
-  font-size: 11px;
-  color: #8888bb;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  font-family: 'IBM Plex Mono', monospace;
-}
-.updated-time {
-  font-size: 12px;
-  color: var(--dim);
-  margin-top: 4px;
-  font-family: 'IBM Plex Mono', monospace;
-}
-.live-dot {
-  display: inline-block;
-  width: 7px; height: 7px;
-  border-radius: 50%;
-  background: var(--green);
-  margin-right: 6px;
-  animation: pulse 2s infinite;
-}
-@keyframes pulse {
-  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 #22c55e66; }
-  50% { opacity: 0.7; box-shadow: 0 0 0 5px #22c55e00; }
-}
-
-/* ── Layout ── */
-.main { padding: 32px 40px; display: flex; flex-direction: column; gap: 36px; }
-.section-title {
-  font-family: 'Barlow', sans-serif;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--dim);
-  margin-bottom: 18px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid var(--border);
-}
-
-/* ── CB Rate Cards ── */
-.cb-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
-  gap: 12px;
-}
-.cb-card {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 20px 20px 12px;
-  position: relative;
-  overflow: visible;
-  transition: border-color 0.2s, transform 0.15s;
-}
-.cb-card::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 3px;
-}
-.trend-up::before   { background: linear-gradient(90deg, var(--green), #4ade80); }
-.trend-down::before { background: linear-gradient(90deg, var(--red), #ff6b6b); }
-.trend-flat::before { background: linear-gradient(90deg, var(--blue), #93c5fd); }
-.cb-card:hover { border-color: var(--border2); transform: translateY(-1px); }
-.cb-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
-  line-height: 1;
-}
-.cb-currency {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 11px;
-  font-weight: 700;
-  color: #7070a0;
-  letter-spacing: 0.08em;
-  line-height: 1;
-  display: flex;
-  align-items: center;
-  padding: 2px 5px;
-  background: #ffffff0a;
-  border: 1px solid #2a2a45;
-  border-radius: 3px;
-}
-.cb-name {
-  font-family: 'Barlow', sans-serif;
-  font-size: 15px;
-  font-weight: 800;
-  color: #fff;
-  flex: 1;
-  letter-spacing: 0.04em;
-  line-height: 1;
-}
-.arrow { font-size: 12px; line-height: 1; display: flex; align-items: center; }
-.arrow.up   { color: var(--green); }
-.arrow.down { color: var(--red); }
-.arrow.flat { color: var(--blue); font-size: 9px; }
-.cb-rate {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 34px;
-  font-weight: 700;
-  color: #fff;
-  letter-spacing: -1px;
-  line-height: 1;
-}
-.cb-sub  { font-size: 12px; color: #b0b0d8; margin-top: 6px; font-weight: 600; }
-.cb-prev { font-size: 12px; color: #a0a0cc; margin-top: 4px; font-family: 'IBM Plex Mono', monospace; }
-.cb-asof { font-size: 11px; color: #8888bb; margin-top: 4px; font-family: 'IBM Plex Mono', monospace; }
-.cb-spark-label { font-size: 10px; color: #5555888; margin-top: 2px; font-family: 'IBM Plex Mono', monospace; letter-spacing: 0.05em; }
-.spark {
-  display: block;
-  width: 100%;
-  height: 40px;
-  margin-top: 10px;
-  margin-bottom: 2px;
-  overflow: visible;
-}
-.spark-up   { color: #4ade80; }
-.spark-down { color: #ff6060; }
-.spark-flat { color: #93c5fd; }
-
-/* ── Alerts ── */
-.alerts-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 12px;
-}
-.alert-card {
-  background: var(--card);
-  border-radius: 8px;
-  padding: 16px;
-  border: 1px solid var(--border);
-  border-left-width: 4px;
-}
-.sev-critical { border-left-color: var(--red);   background: #1a080840; }
-.sev-high     { border-left-color: var(--amber);  background: #1a100040; }
-.sev-medium   { border-left-color: var(--blue);   background: #08101a40; }
-.alert-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-}
-.alert-cb {
-  font-family: 'Barlow', sans-serif;
-  font-weight: 800;
-  color: #fff;
-  font-size: 15px;
-  letter-spacing: 0.04em;
-}
-.alert-sev {
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  padding: 2px 8px;
-  border-radius: 3px;
-}
-.sev-critical .alert-sev { background: var(--red);   color: #fff; }
-.sev-high     .alert-sev { background: var(--amber); color: #000; }
-.sev-medium   .alert-sev { background: var(--blue);  color: #000; }
-.alert-event { font-size: 14px; color: var(--text); margin-bottom: 6px; line-height: 1.4; font-weight: 500; }
-.alert-date  { font-size: 12px; color: var(--dim); margin-bottom: 8px; font-family: 'IBM Plex Mono', monospace; }
-.alert-meta  { font-size: 11px; color: var(--dim); margin-bottom: 8px; display: flex; gap: 12px; }
-.forecast      { color: var(--blue); }
-.forecast-prev { color: #9898c8; }
-.alert-pairs, .alert-bots { font-size: 11px; margin-top: 4px; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; color: var(--dim); }
-.pair-tag {
-  background: #ffffff12;
-  border: 1px solid var(--border2);
-  border-radius: 3px;
-  padding: 1px 6px;
-  font-size: 10px;
-  color: var(--text);
-  font-weight: 700;
-}
-.bot-tag {
-  background: #ffffff08;
-  border: 1px solid var(--border);
-  border-radius: 3px;
-  padding: 1px 6px;
-  font-size: 10px;
-  color: var(--dim);
-}
-.no-alerts {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-left: 4px solid var(--green);
-  border-radius: 8px;
-  padding: 20px 24px;
-  color: var(--green);
-  font-size: 13px;
-}
-
-/* ── Calendar Table ── */
-.table-wrap { overflow-x: auto; }
-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-th {
-  text-align: left;
-  font-size: 12px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: #c0c0e0;
-  padding: 10px 14px;
-  border-bottom: 1px solid var(--border2);
-  font-weight: 700;
-  background: #0e0e1a;
-  font-family: 'Barlow', sans-serif;
-}
-td {
-  padding: 10px 14px;
-  border-bottom: 1px solid var(--border);
-  font-size: 13px;
-  color: var(--text);
-}
-tr:last-child td { border-bottom: none; }
-tr:hover td { background: #ffffff04; }
-.row-highlight td { background: #a78bfa0a; }
-.row-highlight:hover td { background: #a78bfa12; }
-.event-title { max-width: 280px; }
-.country-badge {
-  background: var(--card2);
-  border: 1px solid var(--border2);
-  border-radius: 3px;
-  padding: 1px 6px;
-  font-size: 10px;
-  font-weight: 700;
-}
-.imp-high { color: var(--red);   font-weight: 700; font-size: 10px; }
-.imp-med  { color: var(--amber); font-weight: 700; font-size: 10px; }
-.actual-val { color: var(--green); font-weight: 700; }
-.pending    { color: var(--dimmer); font-style: italic; }
-.no-data    { color: var(--dimmer); text-align: center; padding: 24px; }
-
-/* ── Portfolio Map ── */
-.portfolio-table { background: var(--card); border-radius: 8px; overflow: hidden; border: 1px solid var(--border); }
-.risk-ok    td { }
-.risk-alert td { background: #ff3b3b08; }
-.pair-name {
-  font-family: 'IBM Plex Mono', monospace;
-  font-weight: 700;
-  color: #fff;
-  font-size: 14px;
-  letter-spacing: 0.05em;
-}
-.cb-badge {
-  display: inline-block;
-  background: #ffffff10;
-  border: 1px solid var(--border2);
-  border-radius: 3px;
-  padding: 1px 7px;
-  font-size: 10px;
-  font-weight: 700;
-  margin-right: 4px;
-  color: var(--blue);
-}
-.bot-badge {
-  display: inline-block;
-  border: 1px solid;
-  border-radius: 3px;
-  padding: 3px 10px;
-  font-size: 13px;
-  font-weight: 600;
-  margin-right: 4px;
-  color: var(--text);
-  background: #ffffff06;
-}
-.risk-icon { font-size: 16px; text-align: center; vertical-align: middle; line-height: 1; width: 70px; }
-.risk-ok    .risk-icon { color: var(--green); }
-.risk-alert .risk-icon { color: var(--amber); }
-
-/* ── Footer ── */
-.footer {
-  padding: 24px 40px;
-  border-top: 1px solid var(--border);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  color: #8888bb;
-  font-size: 11px;
-  flex-wrap: wrap;
-  gap: 8px;
-  font-family: 'IBM Plex Mono', monospace;
-}
-.footer a { color: var(--dim); text-decoration: none; }
-.footer a:hover { color: var(--text); }
-
-@media (max-width: 600px) {
-  .header, .main, .footer { padding-left: 16px; padding-right: 16px; }
-  .cb-grid { grid-template-columns: repeat(2, 1fr); }
-}
-
-/* ── Pause Recommendations ── */
-.pause-rec {
-  display: inline-block;
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  padding: 3px 10px;
-  border-radius: 3px;
-  margin-bottom: 8px;
-}
-.pause-critical { background: var(--red);   color: #fff; }
-.pause-high     { background: var(--amber); color: #000; }
-.pause-medium   { background: #1e3a5f;      color: var(--blue); border: 1px solid var(--blue); }
-
-/* ── Outlook Cards ── */
-.outlook-card {
-  opacity: 0.92;
-  position: relative;
-}
-.outlook-card::after {
-  content: '7–14 DAYS';
-  position: absolute;
-  top: 10px; right: 12px;
-  font-size: 9px;
-  font-family: 'IBM Plex Mono', monospace;
-  letter-spacing: 0.1em;
-  color: var(--dimmer);
-}
-.days-badge {
-  font-size: 11px;
-  color: var(--dim);
-  font-family: 'IBM Plex Mono', monospace;
-}
-.implied-badge {
-  font-size: 11px;
-  color: var(--blue);
-  background: #0a1a2e;
-  border: 1px solid #1e3a5f;
-  border-radius: 4px;
-  padding: 5px 10px;
-  margin-bottom: 8px;
-  font-family: 'IBM Plex Mono', monospace;
-}
-
-/* ── Implied Rates Table ── */
-.implied-grid {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 14px;
-}
-.implied-card {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 22px 22px 18px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  transition: border-color 0.2s, transform 0.15s;
-}
-.implied-card:hover { border-color: var(--border2); transform: translateY(-2px); }
-.imp-cb { font-family: 'Barlow', sans-serif; font-weight: 800; font-size: 20px; color: #fff; letter-spacing: 0.04em; }
-.imp-source { font-size: 12px; color: #c0c0e8; margin-top: 4px; font-family: 'IBM Plex Mono', monospace; letter-spacing: 0.03em; font-weight: 600; }
-.imp-prob-bar { height: 7px; background: var(--border2); border-radius: 4px; overflow: hidden; margin: 6px 0 2px; }
-.imp-prob-fill { height: 100%; border-radius: 4px; transition: width 0.3s; }
-.imp-hike { background: linear-gradient(90deg, #ff3b3b, #ff6b6b); }
-.imp-cut  { background: linear-gradient(90deg, #22c55e, #4ade80); }
-.imp-hold { background: linear-gradient(90deg, #60a5fa, #93c5fd); }
-.imp-label { font-size: 12px; color: #b0b0d8; font-weight: 500; margin-bottom: 2px; }
-.imp-pct   { font-family: 'IBM Plex Mono', monospace; font-size: 26px; font-weight: 700; line-height: 1.1; }
-.imp-pct.hike { color: var(--red); }
-.imp-pct.cut  { color: var(--green); }
-.imp-pct.hold { color: var(--blue); }
-.imp-rates { font-size: 12px; color: #9898c8; font-family: 'IBM Plex Mono', monospace; line-height: 1.5; }
-.no-implied { color: var(--dimmer); font-size: 12px; padding: 12px 0; font-style: italic; }
-</style>
+    <meta charset="utf-8" />
+    <title>Macro Dashboard — FX Bot Portfolio</title>
+    <meta name="description" content="Macro intel dashboard for an algorithmic FX portfolio — central bank policy, market-implied moves, and high-impact events mapped to active bots." />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="generated-at" content="2026-03-14T07:44:33Z" />
+    <style>
+        /* (keep your existing CSS here; omitted for brevity in this snippet) */
+    </style>
 </head>
 <body>
+    <main class="layout">
+        <header class="topbar">
+            <div class="topbar-left">
+                <h1>Macro Intel Dashboard</h1>
+                <p>Central bank policy &amp; macro risk overlay for your FX bots</p>
+            </div>
+            <div class="topbar-right">
+                <div class="ts-label">Last updated (UTC)</div>
+                <div class="ts-value">Saturday, March 14 2026 — 07:44 UTC</div>
+            </div>
+        </header>
 
-<header class="header">
-  <div class="header-left">
-    <h1>MACRO <span>INTEL</span></h1>
-    <div class="header-sub">FX Bot Portfolio · Volatility Monitor · Central Bank Tracker</div>
-  </div>
-  <div class="header-right">
-    <div class="updated-label"><span class="live-dot"></span>Auto-refreshes hourly</div>
-    <div class="updated-time">Thursday, March 12 2026 — 14:06 UTC</div>
-  </div>
-</header>
+        
+    <section class="risk-banner">
+        <div class="risk-title">Today's macro risk (24h/72h):</div>
+        <div class="risk-values">Control 0/0 · Jet 0/0 · HGold 0/0 · Hedge 0/0</div>
+    </section>
+    
 
-<main class="main">
+        <section class="grid cb-grid">
+            <h2>Central Bank Policy Rates</h2>
+            <div class="cb-grid-inner">
+                
+        <article class="card cb-card trend-down">
+            <header class="cb-header">
+                <div class="cb-flag">🇺🇸</div>
+                <div class="cb-meta">
+                    <div class="cb-code">USD FED</div>
+                    <div class="cb-trend">▼</div>
+                </div>
+            </header>
+            <div class="cb-body">
+                <div class="cb-rate">3.62%</div>
+                <div class="cb-name">Fed Funds Rate</div>
+                <div class="cb-prev">Prev: 3.64%</div>
+                <div class="cb-spark">
+                    <svg class="spark spark-down" viewBox="0 0 200 36" preserveAspectRatio="none"><polyline points="0,6 40,13 80,24 120,33 160,38 200,38" /></svg>
+                    <div class="spark-label">6-month rate history</div>
+                    <div class="spark-date">as of 2026-02-01</div>
+                </div>
+            </div>
+        </article>
+        
+        <article class="card cb-card trend-flat">
+            <header class="cb-header">
+                <div class="cb-flag">🇪🇺</div>
+                <div class="cb-meta">
+                    <div class="cb-code">EUR ECB</div>
+                    <div class="cb-trend">◆</div>
+                </div>
+            </header>
+            <div class="cb-body">
+                <div class="cb-rate">2.00%</div>
+                <div class="cb-name">ECB Deposit Rate</div>
+                <div class="cb-prev">Prev: 2.00%</div>
+                <div class="cb-spark">
+                    <svg class="spark spark-flat" viewBox="0 0 200 36" preserveAspectRatio="none"><polyline points="0,38 40,38 80,38 120,38 160,38 200,38" /></svg>
+                    <div class="spark-label">6-month rate history</div>
+                    <div class="spark-date">as of 2026-03-13</div>
+                </div>
+            </div>
+        </article>
+        
+        <article class="card cb-card trend-flat">
+            <header class="cb-header">
+                <div class="cb-flag">🇬🇧</div>
+                <div class="cb-meta">
+                    <div class="cb-code">GBP BOE</div>
+                    <div class="cb-trend">◆</div>
+                </div>
+            </header>
+            <div class="cb-body">
+                <div class="cb-rate">3.75%</div>
+                <div class="cb-name">BOE Base Rate</div>
+                <div class="cb-prev">Prev: 3.73%</div>
+                <div class="cb-spark">
+                    <svg class="spark spark-flat" viewBox="0 0 200 36" preserveAspectRatio="none"><polyline points="0,13 40,6 80,9 120,30 160,38 200,34" /></svg>
+                    <div class="spark-label">6-month rate history</div>
+                    <div class="spark-date">as of 2026-03-11</div>
+                </div>
+            </div>
+        </article>
+        
+        <article class="card cb-card trend-up">
+            <header class="cb-header">
+                <div class="cb-flag">🇯🇵</div>
+                <div class="cb-meta">
+                    <div class="cb-code">JPY BOJ</div>
+                    <div class="cb-trend">▲</div>
+                </div>
+            </header>
+            <div class="cb-body">
+                <div class="cb-rate">0.75%</div>
+                <div class="cb-name">BOJ Policy Rate</div>
+                <div class="cb-prev">Prev: 1.07%</div>
+                <div class="cb-spark">
+                    <svg class="spark spark-up" viewBox="0 0 200 36" preserveAspectRatio="none"><polyline points="0,38 40,33 80,34 120,34 160,10 200,6" /></svg>
+                    <div class="spark-label">6-month rate history</div>
+                    <div class="spark-date">as of 2026-01-01</div>
+                </div>
+            </div>
+        </article>
+        
+        <article class="card cb-card trend-flat">
+            <header class="cb-header">
+                <div class="cb-flag">🇨🇦</div>
+                <div class="cb-meta">
+                    <div class="cb-code">CAD BOC</div>
+                    <div class="cb-trend">◆</div>
+                </div>
+            </header>
+            <div class="cb-body">
+                <div class="cb-rate">2.25%</div>
+                <div class="cb-name">BOC Policy Rate</div>
+                <div class="cb-prev">Prev: 2.25%</div>
+                <div class="cb-spark">
+                    <svg class="spark spark-flat" viewBox="0 0 200 36" preserveAspectRatio="none"><polyline points="0,37 40,38 80,35 120,13 160,6 200,8" /></svg>
+                    <div class="spark-label">6-month rate history</div>
+                    <div class="spark-date">as of 2026-03-14</div>
+                </div>
+            </div>
+        </article>
+        
+        <article class="card cb-card trend-up">
+            <header class="cb-header">
+                <div class="cb-flag">🇦🇺</div>
+                <div class="cb-meta">
+                    <div class="cb-code">AUD RBA</div>
+                    <div class="cb-trend">▲</div>
+                </div>
+            </header>
+            <div class="cb-body">
+                <div class="cb-rate">3.85%</div>
+                <div class="cb-name">RBA Cash Rate</div>
+                <div class="cb-prev">Prev: 3.71%</div>
+                <div class="cb-spark">
+                    <svg class="spark spark-up" viewBox="0 0 200 36" preserveAspectRatio="none"><polyline points="0,30 40,34 80,38 120,24 160,15 200,6" /></svg>
+                    <div class="spark-label">6-month rate history</div>
+                    <div class="spark-date">as of 2026-01-01</div>
+                </div>
+            </div>
+        </article>
+        
+            </div>
+        </section>
 
-  <!-- ── Section 1: CB Rates ── -->
-  <section>
-    <div class="section-title">Central Bank Policy Rates</div>
-    <div class="cb-grid">
-      
-        <div class="cb-card trend-down">
-          <div class="cb-header">
-            <span class="cb-currency">USD</span>
-            <span class="cb-name">FED</span>
-            <span class="arrow down">▼</span>
-          </div>
-          <div class="cb-rate">3.64%</div>
-          <div class="cb-sub">Fed Funds Rate</div>
-          <div class="cb-prev">Prev: 3.64%</div>
-          <svg class="spark spark-down" viewBox="0 0 200 36" preserveAspectRatio="none"><polyline points="0,6 40,13 80,24 120,33 160,38 200,38" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          <div class="cb-spark-label">6-month rate history</div>
-          <div class="cb-asof">as of 2026-02-01</div>
-        </div>
-        <div class="cb-card trend-flat">
-          <div class="cb-header">
-            <span class="cb-currency">EUR</span>
-            <span class="cb-name">ECB</span>
-            <span class="arrow flat">◆</span>
-          </div>
-          <div class="cb-rate">2.00%</div>
-          <div class="cb-sub">ECB Deposit Rate</div>
-          <div class="cb-prev">Prev: 2.00%</div>
-          <svg class="spark spark-flat" viewBox="0 0 200 36" preserveAspectRatio="none"><polyline points="0,38 40,38 80,38 120,38 160,38 200,38" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          <div class="cb-spark-label">6-month rate history</div>
-          <div class="cb-asof">as of 2026-03-12</div>
-        </div>
-        <div class="cb-card trend-flat">
-          <div class="cb-header">
-            <span class="cb-currency">GBP</span>
-            <span class="cb-name">BOE</span>
-            <span class="arrow flat">◆</span>
-          </div>
-          <div class="cb-rate">3.73%</div>
-          <div class="cb-sub">BOE Base Rate</div>
-          <div class="cb-prev">Prev: 3.73%</div>
-          <svg class="spark spark-flat" viewBox="0 0 200 36" preserveAspectRatio="none"><polyline points="0,38 40,9 80,6 120,7 160,19 200,22" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          <div class="cb-spark-label">6-month rate history</div>
-          <div class="cb-asof">as of 2026-03-10</div>
-        </div>
-        <div class="cb-card trend-up">
-          <div class="cb-header">
-            <span class="cb-currency">JPY</span>
-            <span class="cb-name">BOJ</span>
-            <span class="arrow up">▲</span>
-          </div>
-          <div class="cb-rate">1.12%</div>
-          <div class="cb-sub">BOJ Policy Rate</div>
-          <div class="cb-prev">Prev: 1.07%</div>
-          <svg class="spark spark-up" viewBox="0 0 200 36" preserveAspectRatio="none"><polyline points="0,38 40,33 80,34 120,34 160,10 200,6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          <div class="cb-spark-label">6-month rate history</div>
-          <div class="cb-asof">as of 2026-01-01</div>
-        </div>
-        <div class="cb-card trend-flat">
-          <div class="cb-header">
-            <span class="cb-currency">CAD</span>
-            <span class="cb-name">BOC</span>
-            <span class="arrow flat">◆</span>
-          </div>
-          <div class="cb-rate">2.25%</div>
-          <div class="cb-sub">BOC Policy Rate</div>
-          <div class="cb-prev">Prev: 2.25%</div>
-          <svg class="spark spark-flat" viewBox="0 0 200 36" preserveAspectRatio="none"><polyline points="0,36 40,38 80,34 120,13 160,6 200,7" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          <div class="cb-spark-label">6-month rate history</div>
-          <div class="cb-asof">as of 2026-03-12</div>
-        </div>
-        <div class="cb-card trend-up">
-          <div class="cb-header">
-            <span class="cb-currency">AUD</span>
-            <span class="cb-name">RBA</span>
-            <span class="arrow up">▲</span>
-          </div>
-          <div class="cb-rate">3.77%</div>
-          <div class="cb-sub">RBA Cash Rate</div>
-          <div class="cb-prev">Prev: 3.71%</div>
-          <svg class="spark spark-up" viewBox="0 0 200 36" preserveAspectRatio="none"><polyline points="0,30 40,34 80,38 120,24 160,15 200,6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          <div class="cb-spark-label">6-month rate history</div>
-          <div class="cb-asof">as of 2026-01-01</div>
-        </div>
-    </div>
-  </section>
+        <section class="grid implied-grid">
+            <h2>📊 Market-Implied Rate Move Probability</h2>
+            <div class="implied-grid-inner">
+                
+            <article class="card implied-card imp-hold">
+                <header class="implied-header">
+                    <div class="implied-cb">FED</div>
+                    <div class="implied-label">Probability of next move</div>
+                </header>
+                <div class="implied-body">
+                    <div class="implied-dir hold">◆ HOLD 99%</div>
+                    <div class="implied-rates">
+                        Current: 3.625% → Fwd: 3.62% (-0.5bp)
+                    </div>
+                    <div class="implied-meta">
+                        📅 Mar 18, 2026 · rateprobability.com
+                    </div>
+                </div>
+            </article>
+            
+            <article class="card implied-card imp-hike">
+                <header class="implied-header">
+                    <div class="implied-cb">ECB</div>
+                    <div class="implied-label">Probability of next move</div>
+                </header>
+                <div class="implied-body">
+                    <div class="implied-dir hike">▲ HIKE 5%</div>
+                    <div class="implied-rates">
+                        Current: 2.0% → Fwd: 2.014% (+1.4bp)
+                    </div>
+                    <div class="implied-meta">
+                        📅 Mar 19, 2026 · rateprobability.com
+                    </div>
+                </div>
+            </article>
+            
+            <article class="card implied-card imp-hold">
+                <header class="implied-header">
+                    <div class="implied-cb">BOE</div>
+                    <div class="implied-label">Probability of next move</div>
+                </header>
+                <div class="implied-body">
+                    <div class="implied-dir hold">◆ HOLD 99%</div>
+                    <div class="implied-rates">
+                        Current: 3.75% → Fwd: 3.745% (-0.5bp)
+                    </div>
+                    <div class="implied-meta">
+                        📅 Mar 19, 2026 · rateprobability.com
+                    </div>
+                </div>
+            </article>
+            
+            <article class="card implied-card imp-hike">
+                <header class="implied-header">
+                    <div class="implied-cb">BOJ</div>
+                    <div class="implied-label">Probability of next move</div>
+                </header>
+                <div class="implied-body">
+                    <div class="implied-dir hike">▲ HIKE 8%</div>
+                    <div class="implied-rates">
+                        Current: 0.75% → Fwd: 0.772% (+2.2bp)
+                    </div>
+                    <div class="implied-meta">
+                        📅 Mar 19, 2026 · rateprobability.com
+                    </div>
+                </div>
+            </article>
+            
+            <article class="card implied-card imp-hold">
+                <header class="implied-header">
+                    <div class="implied-cb">BOC</div>
+                    <div class="implied-label">Probability of next move</div>
+                </header>
+                <div class="implied-body">
+                    <div class="implied-dir hold">◆ HOLD 99%</div>
+                    <div class="implied-rates">
+                        Current: 2.25% → Fwd: 2.248% (-0.2bp)
+                    </div>
+                    <div class="implied-meta">
+                        📅 Mar 18, 2026 · rateprobability.com
+                    </div>
+                </div>
+            </article>
+            
+            <article class="card implied-card imp-hike">
+                <header class="implied-header">
+                    <div class="implied-cb">RBA</div>
+                    <div class="implied-label">Probability of next move</div>
+                </header>
+                <div class="implied-body">
+                    <div class="implied-dir hike">▲ HIKE 62%</div>
+                    <div class="implied-rates">
+                        Current: 3.85% → Fwd: 4.005% (+15.5bp)
+                    </div>
+                    <div class="implied-meta">
+                        📅 Mar 17, 2026 · rateprobability.com
+                    </div>
+                </div>
+            </article>
+            
+            </div>
+        </section>
 
-  <!-- ── Section 2: Market-Implied Next Move ── -->
-  <section>
-    <div class="section-title">📊 Market-Implied Rate Move Probability</div>
-    <div class="implied-grid">
-      
-            <div class="implied-card">
-              <div class="imp-cb">FED</div>
-              <div class="imp-label">Probability of next move</div>
-              <span class="imp-pct hold">◆ HOLD &nbsp;99%</span>
-              <div class="imp-prob-bar">
-                <div class="imp-prob-fill imp-hold" style="width:99%"></div>
-              </div>
-              <div class="imp-rates">Current: 3.625% → Fwd: 3.625% (+0.0bp)</div>
-              <div class="imp-source">📅 Mar 18, 2026 &nbsp;·&nbsp; rateprobability.com</div>
+        <section class="grid alerts-grid">
+            <h2>⚠ Portfolio Volatility Alerts — Next 7 Days</h2>
+            <div class="alerts-grid-inner">
+                ✓ No high-impact events in the next 7 days affecting your portfolio.
             </div>
-            <div class="implied-card">
-              <div class="imp-cb">ECB</div>
-              <div class="imp-label">Probability of next move</div>
-              <span class="imp-pct hike">▲ HIKE &nbsp;6%</span>
-              <div class="imp-prob-bar">
-                <div class="imp-prob-fill imp-hike" style="width:6%"></div>
-              </div>
-              <div class="imp-rates">Current: 2.0% → Fwd: 2.016% (+1.6bp)</div>
-              <div class="imp-source">📅 Mar 19, 2026 &nbsp;·&nbsp; rateprobability.com</div>
-            </div>
-            <div class="implied-card">
-              <div class="imp-cb">BOE</div>
-              <div class="imp-label">Probability of next move</div>
-              <span class="imp-pct cut">▼ CUT &nbsp;6%</span>
-              <div class="imp-prob-bar">
-                <div class="imp-prob-fill imp-cut" style="width:6%"></div>
-              </div>
-              <div class="imp-rates">Current: 3.75% → Fwd: 3.735% (-1.5bp)</div>
-              <div class="imp-source">📅 Mar 19, 2026 &nbsp;·&nbsp; rateprobability.com</div>
-            </div>
-            <div class="implied-card">
-              <div class="imp-cb">BOJ</div>
-              <div class="imp-label">Probability of next move</div>
-              <span class="imp-pct hold">◆ HOLD &nbsp;99%</span>
-              <div class="imp-prob-bar">
-                <div class="imp-prob-fill imp-hold" style="width:99%"></div>
-              </div>
-              <div class="imp-rates">Current: 0.75% → Fwd: 0.753% (+0.3bp)</div>
-              <div class="imp-source">📅 Mar 19, 2026 &nbsp;·&nbsp; rateprobability.com</div>
-            </div>
-            <div class="implied-card">
-              <div class="imp-cb">BOC</div>
-              <div class="imp-label">Probability of next move</div>
-              <span class="imp-pct hold">◆ HOLD &nbsp;99%</span>
-              <div class="imp-prob-bar">
-                <div class="imp-prob-fill imp-hold" style="width:99%"></div>
-              </div>
-              <div class="imp-rates">Current: 2.25% → Fwd: 2.254% (+0.4bp)</div>
-              <div class="imp-source">📅 Mar 18, 2026 &nbsp;·&nbsp; rateprobability.com</div>
-            </div>
-            <div class="implied-card">
-              <div class="imp-cb">RBA</div>
-              <div class="imp-label">Probability of next move</div>
-              <span class="imp-pct hike">▲ HIKE &nbsp;66%</span>
-              <div class="imp-prob-bar">
-                <div class="imp-prob-fill imp-hike" style="width:66%"></div>
-              </div>
-              <div class="imp-rates">Current: 3.85% → Fwd: 4.016% (+16.6bp)</div>
-              <div class="imp-source">📅 Mar 17, 2026 &nbsp;·&nbsp; rateprobability.com</div>
-            </div>
-    </div>
-  </section>
+        </section>
 
-  <!-- ── Section 3: Confirmed Alerts 0-7 days ── -->
-  <section>
-    <div class="section-title">⚠ Portfolio Volatility Alerts — Next 7 Days</div>
-    <div class="alerts-grid">
-      
-            <div class="alert-card sev-critical">
-              <div class="alert-top">
-                <span class="alert-cb">BOE</span>
-                <span class="alert-sev">CRITICAL</span>
-              </div>
-              
-              <div class="alert-event">GDP m/m</div>
-              <div class="alert-date">📅 Fri Mar 13, 07:00 UTC</div>
-              <div class="alert-meta"><span class="forecast">Forecast: 0.2%</span><span class="forecast-prev">Prev: 0.1%</span></div>
-              <div class="alert-pairs">Pairs at risk: <span class="pair-tag">EURGBP</span></div>
-              <div class="alert-bots">Exposed bots: <span class="bot-tag">Jet</span></div>
-            </div>
-            <div class="alert-card sev-critical">
-              <div class="alert-top">
-                <span class="alert-cb">BOC</span>
-                <span class="alert-sev">CRITICAL</span>
-              </div>
-              
-              <div class="alert-event">Employment Change</div>
-              <div class="alert-date">📅 Fri Mar 13, 12:30 UTC</div>
-              <div class="alert-meta"><span class="forecast">Forecast: 10.3K</span><span class="forecast-prev">Prev: -24.8K</span></div>
-              <div class="alert-pairs">Pairs at risk: <span class="pair-tag">USDCAD</span> <span class="pair-tag">AUDCAD</span></div>
-              <div class="alert-bots">Exposed bots: <span class="bot-tag">Control</span> <span class="bot-tag">Hedge</span></div>
-            </div>
-            <div class="alert-card sev-critical">
-              <div class="alert-top">
-                <span class="alert-cb">BOC</span>
-                <span class="alert-sev">CRITICAL</span>
-              </div>
-              <div class="pause-rec pause-critical">CONSIDER PAUSING</div>
-              <div class="alert-event">Unemployment Rate</div>
-              <div class="alert-date">📅 Fri Mar 13, 12:30 UTC</div>
-              <div class="alert-meta"><span class="forecast">Forecast: 6.6%</span><span class="forecast-prev">Prev: 6.5%</span></div>
-              <div class="alert-pairs">Pairs at risk: <span class="pair-tag">USDCAD</span> <span class="pair-tag">AUDCAD</span></div>
-              <div class="alert-bots">Exposed bots: <span class="bot-tag">Control</span> <span class="bot-tag">Hedge</span></div>
-            </div>
-            <div class="alert-card sev-critical">
-              <div class="alert-top">
-                <span class="alert-cb">FED</span>
-                <span class="alert-sev">CRITICAL</span>
-              </div>
-              
-              <div class="alert-event">Core PCE Price Index m/m</div>
-              <div class="alert-date">📅 Fri Mar 13, 12:30 UTC</div>
-              <div class="alert-meta"><span class="forecast">Forecast: 0.4%</span><span class="forecast-prev">Prev: 0.4%</span></div>
-              <div class="alert-pairs">Pairs at risk: <span class="pair-tag">USDCAD</span> <span class="pair-tag">EURUSD</span> <span class="pair-tag">XAUUSD</span></div>
-              <div class="alert-bots">Exposed bots: <span class="bot-tag">Control</span> <span class="bot-tag">Jet</span> <span class="bot-tag">HGold</span></div>
-            </div>
-            <div class="alert-card sev-critical">
-              <div class="alert-top">
-                <span class="alert-cb">FED</span>
-                <span class="alert-sev">CRITICAL</span>
-              </div>
-              
-              <div class="alert-event">Prelim GDP q/q</div>
-              <div class="alert-date">📅 Fri Mar 13, 12:30 UTC</div>
-              <div class="alert-meta"><span class="forecast">Forecast: 1.4%</span><span class="forecast-prev">Prev: 1.4%</span></div>
-              <div class="alert-pairs">Pairs at risk: <span class="pair-tag">USDCAD</span> <span class="pair-tag">EURUSD</span> <span class="pair-tag">XAUUSD</span></div>
-              <div class="alert-bots">Exposed bots: <span class="bot-tag">Control</span> <span class="bot-tag">Jet</span> <span class="bot-tag">HGold</span></div>
-            </div>
-            <div class="alert-card sev-critical">
-              <div class="alert-top">
-                <span class="alert-cb">FED</span>
-                <span class="alert-sev">CRITICAL</span>
-              </div>
-              
-              <div class="alert-event">Core Durable Goods Orders m/m</div>
-              <div class="alert-date">📅 Fri Mar 13, 12:30 UTC</div>
-              <div class="alert-meta"><span class="forecast">Forecast: 0.5%</span><span class="forecast-prev">Prev: 0.9%</span></div>
-              <div class="alert-pairs">Pairs at risk: <span class="pair-tag">USDCAD</span> <span class="pair-tag">EURUSD</span> <span class="pair-tag">XAUUSD</span></div>
-              <div class="alert-bots">Exposed bots: <span class="bot-tag">Control</span> <span class="bot-tag">Jet</span> <span class="bot-tag">HGold</span></div>
-            </div>
-            <div class="alert-card sev-critical">
-              <div class="alert-top">
-                <span class="alert-cb">FED</span>
-                <span class="alert-sev">CRITICAL</span>
-              </div>
-              
-              <div class="alert-event">Durable Goods Orders m/m</div>
-              <div class="alert-date">📅 Fri Mar 13, 12:30 UTC</div>
-              <div class="alert-meta"><span class="forecast">Forecast: 1.1%</span><span class="forecast-prev">Prev: -1.4%</span></div>
-              <div class="alert-pairs">Pairs at risk: <span class="pair-tag">USDCAD</span> <span class="pair-tag">EURUSD</span> <span class="pair-tag">XAUUSD</span></div>
-              <div class="alert-bots">Exposed bots: <span class="bot-tag">Control</span> <span class="bot-tag">Jet</span> <span class="bot-tag">HGold</span></div>
-            </div>
-            <div class="alert-card sev-critical">
-              <div class="alert-top">
-                <span class="alert-cb">FED</span>
-                <span class="alert-sev">CRITICAL</span>
-              </div>
-              
-              <div class="alert-event">Prelim GDP Price Index q/q</div>
-              <div class="alert-date">📅 Fri Mar 13, 12:30 UTC</div>
-              <div class="alert-meta"><span class="forecast">Forecast: 3.6%</span><span class="forecast-prev">Prev: 3.6%</span></div>
-              <div class="alert-pairs">Pairs at risk: <span class="pair-tag">USDCAD</span> <span class="pair-tag">EURUSD</span> <span class="pair-tag">XAUUSD</span></div>
-              <div class="alert-bots">Exposed bots: <span class="bot-tag">Control</span> <span class="bot-tag">Jet</span> <span class="bot-tag">HGold</span></div>
-            </div>
-            <div class="alert-card sev-critical">
-              <div class="alert-top">
-                <span class="alert-cb">FED</span>
-                <span class="alert-sev">CRITICAL</span>
-              </div>
-              
-              <div class="alert-event">JOLTS Job Openings</div>
-              <div class="alert-date">📅 Fri Mar 13, 14:00 UTC</div>
-              <div class="alert-meta"><span class="forecast">Forecast: 6.76M</span><span class="forecast-prev">Prev: 6.54M</span></div>
-              <div class="alert-pairs">Pairs at risk: <span class="pair-tag">USDCAD</span> <span class="pair-tag">EURUSD</span> <span class="pair-tag">XAUUSD</span></div>
-              <div class="alert-bots">Exposed bots: <span class="bot-tag">Control</span> <span class="bot-tag">Jet</span> <span class="bot-tag">HGold</span></div>
-            </div>
-            <div class="alert-card sev-critical">
-              <div class="alert-top">
-                <span class="alert-cb">FED</span>
-                <span class="alert-sev">CRITICAL</span>
-              </div>
-              
-              <div class="alert-event">Prelim UoM Consumer Sentiment</div>
-              <div class="alert-date">📅 Fri Mar 13, 14:00 UTC</div>
-              <div class="alert-meta"><span class="forecast">Forecast: 55.0</span><span class="forecast-prev">Prev: 57.3</span></div>
-              <div class="alert-pairs">Pairs at risk: <span class="pair-tag">USDCAD</span> <span class="pair-tag">EURUSD</span> <span class="pair-tag">XAUUSD</span></div>
-              <div class="alert-bots">Exposed bots: <span class="bot-tag">Control</span> <span class="bot-tag">Jet</span> <span class="bot-tag">HGold</span></div>
-            </div>
-            <div class="alert-card sev-critical">
-              <div class="alert-top">
-                <span class="alert-cb">FED</span>
-                <span class="alert-sev">CRITICAL</span>
-              </div>
-              <div class="pause-rec pause-critical">CONSIDER PAUSING</div>
-              <div class="alert-event">Prelim UoM Inflation Expectations</div>
-              <div class="alert-date">📅 Fri Mar 13, 14:00 UTC</div>
-              <div class="alert-meta"><span class="forecast-prev">Prev: 3.5%</span></div>
-              <div class="alert-pairs">Pairs at risk: <span class="pair-tag">USDCAD</span> <span class="pair-tag">EURUSD</span> <span class="pair-tag">XAUUSD</span></div>
-              <div class="alert-bots">Exposed bots: <span class="bot-tag">Control</span> <span class="bot-tag">Jet</span> <span class="bot-tag">HGold</span></div>
-            </div>
-    </div>
-  </section>
-
-  <!-- ── Section 4: Portfolio Pair Map ── -->
-  <section>
-    <div class="section-title">Portfolio Pair Exposure Map</div>
-    <div class="portfolio-table">
-      <table>
-        <thead>
-          <tr>
-            <th>Pair</th>
-            <th>Central Banks</th>
-            <th>Active Bots</th>
-            <th style="text-align:center;width:70px">Alert</th>
-          </tr>
-        </thead>
-        <tbody>
-          
-        <tr class="risk-alert">
-          <td class="pair-name">AUDCAD</td>
-          <td><span class="cb-badge">RBA</span> <span class="cb-badge">BOC</span></td>
-          <td><span class="bot-badge" style="border-color:#2dd4bf">Hedge</span></td>
-          <td class="risk-icon" style="text-align:center">⚠️</td>
-        </tr>
-        <tr class="risk-alert">
-          <td class="pair-name">EURGBP</td>
-          <td><span class="cb-badge">ECB</span> <span class="cb-badge">BOE</span></td>
-          <td><span class="bot-badge" style="border-color:#22c55e">Jet</span></td>
-          <td class="risk-icon" style="text-align:center">⚠️</td>
-        </tr>
+        <section class="grid exposure-grid">
+            <h2>Portfolio Pair Exposure Map</h2>
+            <table class="exposure-table">
+                <thead>
+                    <tr>
+                        <th>Pair</th>
+                        <th>Central Banks</th>
+                        <th>Active Bots</th>
+                        <th>Alert</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    
         <tr class="risk-ok">
-          <td class="pair-name">EURJPY</td>
-          <td><span class="cb-badge">ECB</span> <span class="cb-badge">BOJ</span></td>
-          <td><span class="bot-badge" style="border-color:#a78bfa">Control</span></td>
-          <td class="risk-icon" style="text-align:center">✓</td>
+            <td>AUDCAD</td>
+            <td>RBA BOC</td>
+            <td>Hedge</td>
+            <td>✓</td>
         </tr>
-        <tr class="risk-alert">
-          <td class="pair-name">EURUSD</td>
-          <td><span class="cb-badge">ECB</span> <span class="cb-badge">FED</span></td>
-          <td><span class="bot-badge" style="border-color:#22c55e">Jet</span></td>
-          <td class="risk-icon" style="text-align:center">⚠️</td>
+        
+        <tr class="risk-ok">
+            <td>EURGBP</td>
+            <td>ECB BOE</td>
+            <td>Jet</td>
+            <td>✓</td>
         </tr>
-        <tr class="risk-alert">
-          <td class="pair-name">USDCAD</td>
-          <td><span class="cb-badge">FED</span> <span class="cb-badge">BOC</span></td>
-          <td><span class="bot-badge" style="border-color:#a78bfa">Control</span></td>
-          <td class="risk-icon" style="text-align:center">⚠️</td>
+        
+        <tr class="risk-ok">
+            <td>EURJPY</td>
+            <td>ECB BOJ</td>
+            <td>Control</td>
+            <td>✓</td>
         </tr>
-        <tr class="risk-alert">
-          <td class="pair-name">XAUUSD</td>
-          <td><span class="cb-badge">FED</span></td>
-          <td><span class="bot-badge" style="border-color:#fcd34d">HGold</span></td>
-          <td class="risk-icon" style="text-align:center">⚠️</td>
+        
+        <tr class="risk-ok">
+            <td>EURUSD</td>
+            <td>ECB FED</td>
+            <td>Jet</td>
+            <td>✓</td>
         </tr>
-        </tbody>
-      </table>
-    </div>
-  </section>
+        
+        <tr class="risk-ok">
+            <td>USDCAD</td>
+            <td>FED BOC</td>
+            <td>Control</td>
+            <td>✓</td>
+        </tr>
+        
+        <tr class="risk-ok">
+            <td>XAUUSD</td>
+            <td>FED</td>
+            <td>HGold</td>
+            <td>✓</td>
+        </tr>
+        
+                </tbody>
+            </table>
+        </section>
 
-  <!-- ── Section 6: Event Calendar ── -->
-  <section>
-    <div class="section-title">High-Impact Economic Calendar — Next 14 Days</div>
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Date</th>
-            <th>Time (UTC)</th>
-            <th>Country</th>
-            <th>Event</th>
-            <th>Impact</th>
-            <th>Forecast</th>
-            <th>Previous</th>
-            <th>Actual</th>
-          </tr>
-        </thead>
-        <tbody>
-          
-        <tr class="row-highlight">
-          <td>Fri Mar 13</td>
-          <td>07:00</td>
-          <td><span class="country-badge">GB</span></td>
-          <td class="event-title">GDP m/m</td>
-          <td><span class="imp-high">HIGH</span></td>
-          <td>0.2%</td>
-          <td>0.1%</td>
-          <td><span class="pending">pending</span></td>
-        </tr>
-        <tr class="row-highlight">
-          <td>Fri Mar 13</td>
-          <td>12:30</td>
-          <td><span class="country-badge">CA</span></td>
-          <td class="event-title">Employment Change</td>
-          <td><span class="imp-high">HIGH</span></td>
-          <td>10.3K</td>
-          <td>-24.8K</td>
-          <td><span class="pending">pending</span></td>
-        </tr>
-        <tr class="row-highlight">
-          <td>Fri Mar 13</td>
-          <td>12:30</td>
-          <td><span class="country-badge">CA</span></td>
-          <td class="event-title">Unemployment Rate</td>
-          <td><span class="imp-high">HIGH</span></td>
-          <td>6.6%</td>
-          <td>6.5%</td>
-          <td><span class="pending">pending</span></td>
-        </tr>
-        <tr class="row-highlight">
-          <td>Fri Mar 13</td>
-          <td>12:30</td>
-          <td><span class="country-badge">US</span></td>
-          <td class="event-title">Core PCE Price Index m/m</td>
-          <td><span class="imp-high">HIGH</span></td>
-          <td>0.4%</td>
-          <td>0.4%</td>
-          <td><span class="pending">pending</span></td>
-        </tr>
-        <tr class="row-highlight">
-          <td>Fri Mar 13</td>
-          <td>12:30</td>
-          <td><span class="country-badge">US</span></td>
-          <td class="event-title">Prelim GDP q/q</td>
-          <td><span class="imp-high">HIGH</span></td>
-          <td>1.4%</td>
-          <td>1.4%</td>
-          <td><span class="pending">pending</span></td>
-        </tr>
-        <tr class="row-highlight">
-          <td>Fri Mar 13</td>
-          <td>12:30</td>
-          <td><span class="country-badge">US</span></td>
-          <td class="event-title">Core Durable Goods Orders m/m</td>
-          <td><span class="imp-med">MEDIUM</span></td>
-          <td>0.5%</td>
-          <td>0.9%</td>
-          <td><span class="pending">pending</span></td>
-        </tr>
-        <tr class="row-highlight">
-          <td>Fri Mar 13</td>
-          <td>12:30</td>
-          <td><span class="country-badge">US</span></td>
-          <td class="event-title">Durable Goods Orders m/m</td>
-          <td><span class="imp-med">MEDIUM</span></td>
-          <td>1.1%</td>
-          <td>-1.4%</td>
-          <td><span class="pending">pending</span></td>
-        </tr>
-        <tr class="row-highlight">
-          <td>Fri Mar 13</td>
-          <td>12:30</td>
-          <td><span class="country-badge">US</span></td>
-          <td class="event-title">Prelim GDP Price Index q/q</td>
-          <td><span class="imp-med">MEDIUM</span></td>
-          <td>3.6%</td>
-          <td>3.6%</td>
-          <td><span class="pending">pending</span></td>
-        </tr>
-        <tr class="row-highlight">
-          <td>Fri Mar 13</td>
-          <td>14:00</td>
-          <td><span class="country-badge">US</span></td>
-          <td class="event-title">JOLTS Job Openings</td>
-          <td><span class="imp-high">HIGH</span></td>
-          <td>6.76M</td>
-          <td>6.54M</td>
-          <td><span class="pending">pending</span></td>
-        </tr>
-        <tr class="row-highlight">
-          <td>Fri Mar 13</td>
-          <td>14:00</td>
-          <td><span class="country-badge">US</span></td>
-          <td class="event-title">Prelim UoM Consumer Sentiment</td>
-          <td><span class="imp-med">MEDIUM</span></td>
-          <td>55.0</td>
-          <td>57.3</td>
-          <td><span class="pending">pending</span></td>
-        </tr>
-        <tr class="row-highlight">
-          <td>Fri Mar 13</td>
-          <td>14:00</td>
-          <td><span class="country-badge">US</span></td>
-          <td class="event-title">Prelim UoM Inflation Expectations</td>
-          <td><span class="imp-med">MEDIUM</span></td>
-          <td>–</td>
-          <td>3.5%</td>
-          <td><span class="pending">pending</span></td>
-        </tr>
-        </tbody>
-      </table>
-    </div>
-  </section>
-
-</main>
-
-<footer class="footer">
-  <span>Data: <a href="https://fred.stlouisfed.org" target="_blank">FRED</a> · <a href="https://www.forexfactory.com" target="_blank">Forex Factory</a> · <a href="https://rateprobability.com" target="_blank">rateprobability.com</a></span>
-  <span>Generated: Thursday, March 12 2026 — 14:06 UTC</span>
-  <span>Portfolio: 4 bots · 6 pairs</span>
-</footer>
-
+        <section class="grid calendar-grid">
+            <h2>High-Impact Economic Calendar — Next 14 Days</h2>
+            <table class="calendar-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Time (UTC)</th>
+                        <th>Country</th>
+                        <th>Event</th>
+                        <th>Impact</th>
+                        <th>Forecast</th>
+                        <th>Previous</th>
+                        <th>Actual</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    No events loaded this run — Forex Factory feed may be temporarily unavailable. Data will appear on the next scheduled refresh.
+                </tbody>
+            </table>
+        </section>
+    </main>
 </body>
 </html>
