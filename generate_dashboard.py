@@ -12,7 +12,7 @@ import urllib.error
 from datetime import datetime, timedelta, timezone
 from xml.etree import ElementTree as ET
 
-# â”€â”€ Portfolio Configuration â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Portfolio Configuration ────────────────────────────────────────────────────
 PORTFOLIO = {
     "Control": {"pairs": ["EURJPY", "USDCAD"], "strategy": "Fibonacci Grid", "color": "#a78bfa"},
     "Jet":     {"pairs": ["EURUSD", "EURGBP"], "strategy": "Dual-Dir Grid", "color": "#22c55e"},
@@ -23,7 +23,7 @@ PORTFOLIO = {
 # All unique pairs across portfolio
 ALL_PAIRS = sorted(set(p for bot in PORTFOLIO.values() for p in bot["pairs"]))
 
-# Pair â†’ central banks that drive volatility
+# Pair → central banks that drive volatility
 PAIR_CB_MAP = {
     "EURJPY":  ["ECB", "BOJ"],
     "USDCAD":  ["FED", "BOC"],
@@ -39,37 +39,37 @@ FRED_SERIES = {
     # Candidates verified against FRED catalogue as of early 2026.
     "FED": {
         "ids": ["FEDFUNDS"],
-        "name": "Fed Funds Rate", "currency": "USD", "flag": "ðŸ‡ºðŸ‡¸",
+        "name": "Fed Funds Rate", "currency": "USD", "flag": "🇺🇸",
     },
     "ECB": {
         "ids": ["ECBDFR"],
-        "name": "ECB Deposit Rate", "currency": "EUR", "flag": "ðŸ‡ªðŸ‡º",
+        "name": "ECB Deposit Rate", "currency": "EUR", "flag": "🇪🇺",
     },
     "BOE": {
         "ids": ["IUDSOIA", "BOEBR"],
-        "name": "BOE Base Rate", "currency": "GBP", "flag": "ðŸ‡¬ðŸ‡§",
+        "name": "BOE Base Rate", "currency": "GBP", "flag": "🇬🇧",
     },
     "BOJ": {
         # BOJ near-zero rate: use overnight call rate or 3M Tibor as proxy
         "ids": ["IRSTCB01JPM156N", "IR3TIB01JPM156N", "INTGSTJPM193N"],
-        "name": "BOJ Policy Rate", "currency": "JPY", "flag": "ðŸ‡¯ðŸ‡µ",
+        "name": "BOJ Policy Rate", "currency": "JPY", "flag": "🇯🇵",
     },
     "BOC": {
         # BOC overnight rate target
         "ids": ["IRSTCB01CAM156N", "INTGSTCAM193N", "IR3TBB01CAM156N"],
-        "name": "BOC Policy Rate", "currency": "CAD", "flag": "ðŸ‡¨ðŸ‡¦",
+        "name": "BOC Policy Rate", "currency": "CAD", "flag": "🇨🇦",
     },
     "RBA": {
         # RBA cash rate target
         "ids": ["IRSTCB01AUM156N", "INTGSTAUM193N", "IR3TIB01AUM156N"],
-        "name": "RBA Cash Rate", "currency": "AUD", "flag": "ðŸ‡¦ðŸ‡º",
+        "name": "RBA Cash Rate", "currency": "AUD", "flag": "🇦🇺",
     },
 }
 
 FRED_API_KEY = os.environ.get("FRED_API_KEY", "")
 
 
-# â”€â”€ Data Fetching â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Data Fetching ──────────────────────────────────────────────────────────────
 
 def fetch_fred_series(series_id):
     """Fetch last 6 months of a FRED data series."""
@@ -112,8 +112,8 @@ def fetch_fred_series(series_id):
 def fetch_rateprobability(cb_key):
     """
     Fetch rate probabilities from rateprobability.com JSON API.
-    The pages are JS-rendered SPAs â€” we call the underlying API endpoint directly.
-    Endpoint: /api/{cb}/latest â€” returns JSON with current rate + per-meeting path.
+    The pages are JS-rendered SPAs — we call the underlying API endpoint directly.
+    Endpoint: /api/{cb}/latest — returns JSON with current rate + per-meeting path.
     cb_key: fed, ecb, boj, boe, boc, rba
     """
     import re, json as _json
@@ -135,7 +135,7 @@ def fetch_rateprobability(cb_key):
         data = _json.loads(raw)
         print(f"  rateprobability.com API ({cb_key}): {len(raw)} bytes, keys={list(data.keys())[:6]}")
     except Exception as e:
-        print(f"  rateprobability.com ({cb_key}): API error â€” {e}")
+        print(f"  rateprobability.com ({cb_key}): API error — {e}")
         return None
 
     result = {"cb": cb_key.upper(), "source": "rateprobability.com", "meetings": []}
@@ -146,7 +146,7 @@ def fetch_rateprobability(cb_key):
         print(f"  rateprobability.com ({cb_key}): no 'today' key in response")
         return None
 
-    # Current rate â€” field name varies per CB
+    # Current rate — field name varies per CB
     CB_RATE_KEYS = [
         "cash_rate_target",       # RBA
         "Overnight Rate Target",  # BOC (capitalised)
@@ -182,7 +182,7 @@ def fetch_rateprobability(cb_key):
         if not isinstance(row, dict):
             continue
 
-        # Date â€” use meeting_iso (YYYY-MM-DD) preferentially
+        # Date — use meeting_iso (YYYY-MM-DD) preferentially
         date_val = row.get("meeting_iso") or row.get("meeting") or row.get("date")
         if not date_val:
             continue
@@ -253,14 +253,14 @@ def fetch_rateprobability(cb_key):
         "next_implied_rate":      next_mtg["implied_rate"],
         "delta_bp":               next_mtg["delta_bp"],
     })
-    print(f"  rateprobability.com ({cb_key.upper()}): {result['current_rate']}% â†’ "
+    print(f"  rateprobability.com ({cb_key.upper()}): {result['current_rate']}% → "
           f"{next_mtg['direction']} {next_mtg['probability']}% @ {next_mtg['date_str']} "
-          f"(Î”{next_mtg['delta_bp']:+.1f}bp)")
+          f"(Δ{next_mtg['delta_bp']:+.1f}bp)")
     return result
 
 
 def _rp_to_implied(rp):
-    """Convert fetch_rateprobability() result â†’ implied_moves dict format."""
+    """Convert fetch_rateprobability() result → implied_moves dict format."""
     if not rp:
         return None
     return {
@@ -275,7 +275,7 @@ def _rp_to_implied(rp):
 
 
 def _rp_to_cb_rate(rp):
-    """Convert fetch_rateprobability() result â†’ cb_rates dict format."""
+    """Convert fetch_rateprobability() result → cb_rates dict format."""
     if not rp or "current_rate" not in rp:
         return None
     current = rp["current_rate"]
@@ -304,7 +304,7 @@ def _parse_ff_xml(content, seen):
     """
     events = []
 
-    # FF uses windows-1252 encoding â€” decode accordingly
+    # FF uses windows-1252 encoding — decode accordingly
     if isinstance(content, bytes):
         try:
             text = content.decode("windows-1252")
@@ -320,7 +320,7 @@ def _parse_ff_xml(content, seen):
 
     root = ET.fromstring(content)
 
-    # Map FF currency codes â†’ our CB identifiers
+    # Map FF currency codes → our CB identifiers
     currency_cb_map = {
         "USD": ("FED", "US"),
         "EUR": ("ECB", "EU"),
@@ -416,12 +416,13 @@ def fetch_forex_factory_calendar():
     now    = datetime.now(timezone.utc)
     cutoff = now + timedelta(days=14)
 
-    # â”€â”€ Source 1: Forex Factory XML â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── Source 1: Forex Factory XML ────────────────────────────────────────────
     ff_feeds = [
         ("thisweek", "https://nfs.faireconomy.media/ff_calendar_thisweek.xml"),
         ("thisweek", "https://cdn-nfs.faireconomy.media/ff_calendar_thisweek.xml"),
-        # nextweek â€” FF publishes this late in the week; 404 is normal Monâ€“Thu
+        # nextweek — try both CDN variants; available Fri/Sat, 404 Mon-Thu is normal
         ("nextweek", "https://nfs.faireconomy.media/ff_calendar_nextweek.xml"),
+        ("nextweek", "https://cdn-nfs.faireconomy.media/ff_calendar_nextweek.xml"),
     ]
     fetched_weeks = set()
 
@@ -432,7 +433,7 @@ def fetch_forex_factory_calendar():
             print(f"    FF XML: {url}")
             with _make_request(url) as resp:
                 raw = resp.read()
-            print(f"    â†’ {len(raw)} bytes")
+            print(f"    → {len(raw)} bytes")
             if raw[:2] == b'\x1f\x8b':
                 import gzip
                 raw = gzip.decompress(raw)
@@ -440,28 +441,33 @@ def fetch_forex_factory_calendar():
             if parsed:
                 events.extend(parsed)
                 fetched_weeks.add(week_key)
-                print(f"    â†’ âœ“ {len(parsed)} events ({week_key})")
+                print(f"    → ✓ {len(parsed)} events ({week_key})")
             else:
-                print(f"    â†’ 0 events parsed. XML preview: {raw[:300]}")
+                print(f"    → 0 events parsed. XML preview: {raw[:300]}")
         except urllib.error.HTTPError as e:
             if e.code == 404:
-                print(f"    â†’ 404 (not available yet this cycle)")
+                print(f"    → 404 (not available yet this cycle)")
             else:
-                print(f"    â†’ HTTP {e.code} â€” skipping")
+                print(f"    → HTTP {e.code} — skipping")
         except urllib.error.URLError as e:
-            print(f"    â†’ URLError: {e.reason} â€” skipping")
+            print(f"    → URLError: {e.reason} — skipping")
         except Exception as e:
-            print(f"    â†’ {type(e).__name__}: {e}")
+            print(f"    → {type(e).__name__}: {e}")
 
-    # Filter to 14-day window â€” FF thisweek XML often contains dates beyond Sunday
+    # Keep only future events (next 14 days); drop anything already passed
     before = len(events)
-    events = [e for e in events if e["date"] and e["date"] <= cutoff]
-    if before != len(events):
-        print(f"    â†’ Trimmed to 14-day window: {len(events)} events (was {before})")
+    events = [e for e in events if e["date"] and now <= e["date"] <= cutoff]
+    print(f"    → {len(events)} upcoming events in next 14 days (was {before} total in feed)")
+    if len(events) == 0:
+        weekday = now.weekday()  # 0=Mon, 5=Sat, 6=Sun
+        if weekday < 4:  # Mon-Thu
+            print("    ⚠ All thisweek events are past. nextweek feed not yet published (normal Mon-Thu).")
+        else:
+            print("    ⚠ No future events found — both feeds may be unavailable or all events passed.")
 
-    # â”€â”€ Source 2: FRED release calendar fallback â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── Source 2: FRED release calendar fallback ───────────────────────────────
     if not events and FRED_API_KEY:
-        print("    FF unavailable â€” trying FRED release calendar...")
+        print("    FF unavailable — trying FRED release calendar...")
         try:
             today     = now.strftime("%Y-%m-%d")
             two_weeks = cutoff.strftime("%Y-%m-%d")
@@ -508,16 +514,16 @@ def fetch_forex_factory_calendar():
                             "forecast": "", "previous": "", "actual": "",
                         })
                         break
-            print(f"    â†’ FRED fallback: {len(events)} events")
+            print(f"    → FRED fallback: {len(events)} events")
         except Exception as e:
             import traceback
-            print(f"    â†’ FRED fallback failed: {e}")
+            print(f"    → FRED fallback failed: {e}")
             traceback.print_exc()
 
     if not events:
-        print("  âš  All calendar sources failed")
+        print("  ⚠ All calendar sources failed")
     else:
-        print(f"  âœ“ Total calendar events: {len(events)}")
+        print(f"  ✓ Total calendar events: {len(events)}")
 
     return sorted(events, key=lambda x: x["date"] or datetime.min.replace(tzinfo=timezone.utc))
 
@@ -547,7 +553,7 @@ def fetch_implied_rate_changes(cb_rates):
 
     implied = {}
 
-    # Primary source: rateprobability.com â€” uses real OIS/futures pricing per meeting.
+    # Primary source: rateprobability.com — uses real OIS/futures pricing per meeting.
     # FRED 3M spreads are kept as fallback but often show 0bp for BOJ/RBA (misleading).
     rp_slugs = {"FED": "fed", "ECB": "ecb", "BOE": "boe",
                 "BOJ": "boj", "BOC": "boc", "RBA": "rba"}
@@ -558,23 +564,23 @@ def fetch_implied_rate_changes(cb_rates):
         if imp:
             implied[cb] = imp
             if not cb_rates.get(cb):
-                # CB rate card fully missing â€” build from RP
+                # CB rate card fully missing — build from RP
                 cb_rates[cb] = _rp_to_cb_rate(rp)
                 print(f"  CB rate backfilled for {cb} from rateprobability.com: {imp['current_rate']}%")
             else:
-                # CB rate card exists from FRED (may be interbank proxy) â€”
+                # CB rate card exists from FRED (may be interbank proxy) —
                 # patch displayed rate with RP policy rate so both sections agree
                 rp_rate = imp["current_rate"]
                 fred_rate = cb_rates[cb]["current"]
                 if abs(rp_rate - fred_rate) > 0.01:
                     cb_rates[cb]["current"] = rp_rate
                     cb_rates[cb]["label"]   = cb_rates[cb].get("label", "") + " (policy)"
-                    print(f"  CB rate patched for {cb}: FRED proxy {fred_rate}% â†’ RP policy {rp_rate}%")
+                    print(f"  CB rate patched for {cb}: FRED proxy {fred_rate}% → RP policy {rp_rate}%")
 
     # Fallback: FRED spread for any CB that RP couldn't load
     rp_missing = [cb for cb in FORWARD_PROXIES if cb not in implied]
     if rp_missing:
-        print(f"  RP missing for {rp_missing} â€” using FRED spread fallback...")
+        print(f"  RP missing for {rp_missing} — using FRED spread fallback...")
     for cb in rp_missing:
         series = FORWARD_PROXIES[cb]
         try:
@@ -619,9 +625,9 @@ def compute_alerts(cb_rates, upcoming_events, implied_moves):
     now      = datetime.now(timezone.utc)
     next_7d  = now + timedelta(days=7)
 
-    # â”€â”€ Confirmed alerts: events in next 7 days â”€â”€
+    # ── Confirmed alerts: events in next 7 days ──
     for event in upcoming_events:
-        if not event["date"] or not (now <= event["date"] <= next_7d):
+        if not event["date"] or not (now - timedelta(minutes=30) <= event["date"] <= next_7d):
             continue
 
         affected_pairs = [p for p, cbs in PAIR_CB_MAP.items() if event["cb"] in cbs]
@@ -650,7 +656,7 @@ def compute_alerts(cb_rates, upcoming_events, implied_moves):
             "pause_rec": pause_rec, "window": "7d",
         })
 
-    # â”€â”€ Structural divergence alerts â”€â”€
+    # ── Structural divergence alerts ──
     loaded = {k: v for k, v in cb_rates.items() if v}
     for pair, cbs in PAIR_CB_MAP.items():
         if len(cbs) == 2 and all(c in loaded for c in cbs):
@@ -667,726 +673,791 @@ def compute_alerts(cb_rates, upcoming_events, implied_moves):
 
     return alerts
 
-# â”€â”€ HTML Generation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── HTML Generation ────────────────────────────────────────────────────────────
 
 def trend_arrow(trend):
-    if trend == "hiking":  return '<span class="arrow up">â–²</span>'
-    if trend == "cutting": return '<span class="arrow down">â–¼</span>'
-    return '<span class="arrow flat">â—†</span>'
+    if trend == "hiking":  return '<span class="arrow up">▲</span>'
+    if trend == "cutting": return '<span class="arrow down">▼</span>'
+    return '<span class="arrow flat">◆</span>'
 
 def severity_class(s):
     return {"critical": "sev-critical", "high": "sev-high", "medium": "sev-medium"}.get(s, "sev-medium")
 
-def generate_html(cb_rates, events, alerts, implied_moves):
-    now_str = datetime.now(timezone.utc).strftime("%A, %B %d %Y â€” %H:%M UTC")
-    now_ts  = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-    # â”€â”€ CB Rate Cards â”€â”€
+CB_FLAGS = {
+    "FED": "🇺🇸", "ECB": "🇪🇺", "BOE": "🇬🇧",
+    "BOJ": "🇯🇵", "BOC": "🇨🇦", "RBA": "🇦🇺",
+}
+CB_FULLNAMES = {
+    "FED": "Federal Reserve",
+    "ECB": "European Central Bank",
+    "BOE": "Bank of England",
+    "BOJ": "Bank of Japan",
+    "BOC": "Bank of Canada",
+    "RBA": "Reserve Bank of Australia",
+}
+CB_RATE_LABELS = {
+    "FED": "Fed Funds Rate",
+    "ECB": "Deposit Rate",
+    "BOE": "Base Rate",
+    "BOJ": "Policy Rate",
+    "BOC": "Overnight Rate",
+    "RBA": "Cash Rate",
+}
+COUNTRY_FLAGS = {
+    "USD": "🇺🇸", "EUR": "🇪🇺", "GBP": "🇬🇧",
+    "JPY": "🇯🇵", "CAD": "🇨🇦", "AUD": "🇦🇺",
+    "NZD": "🇳🇿", "CHF": "🇨🇭", "CNY": "🇨🇳",
+    "ALL": "🌐",
+}
+
+def generate_html(cb_rates, events, cb_rates_raw=None, implied_moves=None, alerts=None):
+    # Accept old signature too
+    if implied_moves is None and isinstance(cb_rates_raw, dict) and "direction" not in str(cb_rates_raw):
+        implied_moves = cb_rates_raw
+    if alerts is None:
+        alerts = []
+
+    now_utc = datetime.now(timezone.utc)
+    now_str = now_utc.strftime("%a %b %d, %Y · %H:%M UTC")
+
+    import base64
+    svg_fav = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="6" fill="#0d1117"/><line x1="7" y1="4" x2="7" y2="28" stroke="#58a6ff" stroke-width="1.5" stroke-linecap="round"/><line x1="16" y1="6" x2="16" y2="26" stroke="#3fb950" stroke-width="1.5" stroke-linecap="round"/><line x1="25" y1="5" x2="25" y2="27" stroke="#e3b341" stroke-width="1.5" stroke-linecap="round"/><rect x="4" y="10" width="6" height="12" rx="1" fill="#58a6ff"/><rect x="13" y="8" width="6" height="8" rx="1" fill="#3fb950"/><rect x="22" y="14" width="6" height="10" rx="1" fill="#e3b341"/></svg>"""
+    fav_b64 = base64.b64encode(svg_fav.encode()).decode()
+
+    # ── Summary stats ──
+    n_hike = sum(1 for imp in (implied_moves or {}).values() if imp["direction"] == "hike" and imp["probability"] > 30)
+    n_cut  = sum(1 for imp in (implied_moves or {}).values() if imp["direction"] == "cut"  and imp["probability"] > 30)
+    n_hold = len(implied_moves or {}) - n_hike - n_cut
+    n_events = len([e for e in events if e.get("impact") in ("high",)])
+    n_alerts = len([a for a in alerts if a.get("days_away", 999) < 7])
+
+    # ── CB cards for Central Banks tab ──
     cb_cards_html = ""
     for cb, info in FRED_SERIES.items():
         rate = cb_rates.get(cb)
+        imp  = (implied_moves or {}).get(cb, {})
+        direction = imp.get("direction", "hold")
+        prob      = imp.get("probability", 0)
+        display_pct = (100 - prob) if direction == "hold" else prob
+        next_mtg  = imp.get("next_meeting", "")
+        trend_cls = {"hiking":"cb-hike","cutting":"cb-cut","holding":"cb-hold"}.get(
+            rate["trend"] if rate else "holding", "cb-hold")
+        # Override card class with implied direction if strong signal
+        if direction == "hike" and prob > 40:
+            trend_cls = "cb-hike"
+        elif direction == "cut" and prob > 40:
+            trend_cls = "cb-cut"
+
         if rate:
-            val  = f"{rate['current']:.2f}%"
-            prev = f"{rate['previous']:.2f}%"
-            arrow = trend_arrow(rate["trend"])
-            trend_cls = {"hiking":"trend-up","cutting":"trend-down","holding":"trend-flat"}.get(rate["trend"],"trend-flat")
+            rate_val  = f"{rate['current']:.2f}%"
+            rate_lbl  = CB_RATE_LABELS.get(cb, "Policy Rate")
             spark_cls = {"hiking":"spark-up","cutting":"spark-down","holding":"spark-flat"}.get(rate["trend"],"spark-flat")
             sparkline = generate_sparkline(rate.get("history", []), spark_cls)
-            as_of = rate.get("date", "")
+            as_of     = rate.get("date", "")
         else:
-            val = "N/A"; prev = "â€“"; arrow = ""; trend_cls = "trend-flat"; sparkline = ""; as_of = ""; spark_cls = ""
+            rate_val = "N/A"; rate_lbl = CB_RATE_LABELS.get(cb, "Policy Rate")
+            sparkline = ""; as_of = ""
+
+        dir_label = {"hike": "▲ HIKE", "cut": "▼ CUT", "hold": "◆ HOLD"}.get(direction, "◆ HOLD")
+        bps_cls   = {"hike":"bps-hike","cut":"bps-cut","hold":"bps-hold"}.get(direction,"bps-hold")
+        bps_txt   = f"{imp.get('spread_bp',0):+.1f}bp" if imp else "–"
+        exp_txt   = f"{'Hike' if direction=='hike' else 'Cut' if direction=='cut' else 'Hold'} {display_pct}% probability"
 
         cb_cards_html += f"""
         <div class="cb-card {trend_cls}">
+          <div class="cb-card-glow"></div>
           <div class="cb-header">
-            <span class="cb-currency">{info['currency']}</span>
-            <span class="cb-name">{cb}</span>
-            {arrow}
+            <span class="cb-flag">{CB_FLAGS.get(cb,"🏦")}</span>
+            <div>
+              <div class="cb-name">{CB_FULLNAMES.get(cb, cb)}</div>
+              <div class="cb-date">{next_mtg or "–"}</div>
+            </div>
           </div>
-          <div class="cb-rate">{val}</div>
-          <div class="cb-sub">{info['name']}</div>
-          <div class="cb-prev">Prev: {prev}</div>
+          <div class="cb-rate-row">
+            <div class="cb-current-rate">{rate_val}</div>
+            <div class="cb-rate-label">{rate_lbl}</div>
+          </div>
+          <div class="cb-exp">Market: <span class="exp-val">{dir_label} &nbsp;{display_pct}%</span></div>
+          <span class="cb-bps {bps_cls}">{bps_txt} implied</span>
           {sparkline}
-          <div class="cb-spark-label">6-month rate history</div>
           <div class="cb-asof">as of {as_of}</div>
         </div>"""
 
-    # â”€â”€ Alert Cards (0-7 days) â”€â”€
-    alert_html = ""
+    # ── Timeline / Event cards ──
+    # Group by day
+    from collections import defaultdict
+    day_groups = defaultdict(list)
+    for e in events:
+        if not e.get("date"):
+            continue
+        # Show events from today onwards (allow up to 1 day in past for same-day events)
+        if e["date"] < now_utc:
+            continue
+        day_key = e["date"].strftime("%A · %B %d")
+        day_groups[day_key].append(e)
+
+    timeline_html = ""
+    if not day_groups:
+        timeline_html = '<div class="no-data-msg">No upcoming events — calendar feed will refresh on next scheduled run.</div>'
+    else:
+        for day, evts in sorted(day_groups.items(), key=lambda x: list(day_groups.keys()).index(x[0])):
+            evts_sorted = sorted(evts, key=lambda e: e["date"])
+            cards = ""
+            for e in evts_sorted:
+                impact = e.get("impact","medium")
+                card_cls = "card-high" if impact == "high" else "card-medium"
+                pip_cls  = "pip-high" if impact == "high" else "pip-medium"
+                pip_lbl  = "H" if impact == "high" else "M"
+                flag = COUNTRY_FLAGS.get(e.get("country",""), "🌐")
+                time_str = e["date"].strftime("%H:%M UTC")
+                cb_affected = any(
+                    e["cb"] in PAIR_CB_MAP.get(p, [])
+                    for bot in PORTFOLIO.values() for p in bot["pairs"]
+                )
+                watch_badge = '<span class="rate-badge rate-watch">⚡ BOT PAIRS</span>' if cb_affected else ""
+                fc  = e.get("forecast") or ""
+                prv = e.get("previous") or ""
+                act = e.get("actual") or ""
+                detail_boxes = ""
+                if fc:  detail_boxes += f'<div class="detail-box"><div class="dlbl">Forecast</div><div class="dval expected">{fc}</div></div>'
+                if prv: detail_boxes += f'<div class="detail-box"><div class="dlbl">Previous</div><div class="dval prior">{prv}</div></div>'
+                if act: detail_boxes += f'<div class="detail-box"><div class="dlbl">Actual</div><div class="dval" style="color:var(--accent-green)">{act}</div></div>'
+                detail_html = f'<div class="event-detail"><div class="detail-grid">{detail_boxes}</div></div>' if detail_boxes else ""
+                cards += f"""
+                <div class="event-card {card_cls}" onclick="toggleDetail(this)">
+                  <div class="event-time">{time_str}</div>
+                  <div class="event-main">
+                    <div class="event-header">
+                      <span class="flag">{flag}</span>
+                      <span class="event-name">{e["title"]}</span>
+                      <span class="region-tag">{e.get("country","")}</span>
+                      {watch_badge}
+                    </div>
+                    {detail_html}
+                  </div>
+                  <div class="event-impact"><div class="impact-pip {pip_cls}">{pip_lbl}</div></div>
+                </div>"""
+            timeline_html += f"""
+            <div class="day-group">
+              <div class="day-label"><div class="day-dot"></div>{day.upper()}</div>
+              <div class="event-cards">{cards}</div>
+            </div>"""
+
+    # ── Summary stats row ──
+    summary_html = f"""
+    <div class="summary-row">
+      <div class="summary-card"><div class="val val-blue">{len(cb_rates)}</div><div class="lbl">CBs Tracked</div></div>
+      <div class="summary-card"><div class="val val-red">{n_hike}</div><div class="lbl">Hike Signals</div></div>
+      <div class="summary-card"><div class="val val-green">{n_cut}</div><div class="lbl">Cut Signals</div></div>
+      <div class="summary-card"><div class="val val-yellow">{n_events}</div><div class="lbl">High-Impact Events</div></div>
+      <div class="summary-card"><div class="val val-orange">{n_alerts}</div><div class="lbl">Bot Alerts (7d)</div></div>
+    </div>"""
+
+    # ── Portfolio volatility alerts ──
     real_alerts = [a for a in alerts if a.get("days_away", 999) < 998]
     struct_alerts = [a for a in alerts if a.get("days_away", 999) >= 998]
+    alert_cards = ""
     if not real_alerts and not struct_alerts:
-        alert_html = '<div class="no-alerts">âœ“ No high-impact events in the next 7 days affecting your portfolio.</div>'
+        if not events:
+            alert_cards = '<div class="no-data-msg" style="color:var(--accent-yellow)">⚠ Calendar feed empty — next week\'s events not yet published by Forex Factory (normal on weekdays). Check back Friday/Saturday when the nextweek feed becomes available.</div>'
+        else:
+            alert_cards = '<div class="no-data-msg" style="color:var(--accent-green)">✓ No high-impact events in the next 7 days affecting your portfolio pairs.</div>'
     else:
         for a in sorted(real_alerts + struct_alerts, key=lambda x: x["days_away"]):
-            pairs_str = " ".join(f'<span class="pair-tag">{p}</span>' for p in a["pairs"])
-            bots_str  = " ".join(f'<span class="bot-tag">{b}</span>' for b in a["bots"])
-            fc_str    = f'<span class="forecast">Forecast: {a["forecast"]}</span>' if a.get("forecast") else ""
-            pr_str    = f'<span class="forecast-prev">Prev: {a["previous"]}</span>' if a.get("previous") else ""
-            pause_html = f'<div class="pause-rec pause-{a["severity"]}">{a["pause_rec"]}</div>' if a.get("pause_rec") else ""
-            alert_html += f"""
-            <div class="alert-card {severity_class(a['severity'])}">
-              <div class="alert-top">
-                <span class="alert-cb">{a['cb']}</span>
-                <span class="alert-sev">{a['severity'].upper()}</span>
+            sev = a["severity"]
+            sev_cls = {"critical":"rate-hike","high":"rate-watch","medium":"rate-hold"}.get(sev,"rate-hold")
+            pairs_tags = " ".join(f'<span class="asset-tag asset-fx">{p}</span>' for p in a["pairs"])
+            bots_tags  = " ".join(f'<span class="region-tag">{b}</span>' for b in a["bots"])
+            pause = f'<div style="margin:4px 0;font-size:11px;font-weight:700;color:var(--accent-red)">{a["pause_rec"]}</div>' if a.get("pause_rec") else ""
+            fc  = f'<div class="detail-box" style="display:inline-block;margin:2px"><div class="dlbl">Forecast</div><div class="dval expected">{a["forecast"]}</div></div>' if a.get("forecast") else ""
+            prv = f'<div class="detail-box" style="display:inline-block;margin:2px"><div class="dlbl">Previous</div><div class="dval prior">{a["previous"]}</div></div>' if a.get("previous") else ""
+            alert_cards += f"""
+            <div class="event-card card-{'high' if sev in ('critical','high') else 'medium'}">
+              <div class="event-time" style="font-size:12px;font-weight:700">{a["cb"]}<br/><span style="color:var(--text-muted);font-size:10px;font-weight:400">{a["date"]}</span></div>
+              <div class="event-main">
+                <div class="event-header">
+                  <span class="event-name">{a["event"]}</span>
+                  <span class="rate-badge {sev_cls}">{sev.upper()}</span>
+                </div>
+                {pause}
+                <div class="impact-row" style="margin-top:6px">{pairs_tags}</div>
+                <div style="margin-top:4px">{bots_tags}</div>
+                <div class="detail-grid" style="margin-top:8px">{fc}{prv}</div>
               </div>
-              {pause_html}
-              <div class="alert-event">{a['event']}</div>
-              <div class="alert-date">ðŸ“… {a['date']}</div>
-              <div class="alert-meta">{fc_str}{pr_str}</div>
-              <div class="alert-pairs">Pairs at risk: {pairs_str}</div>
-              <div class="alert-bots">Exposed bots: {bots_str}</div>
+              <div class="event-impact"><div class="impact-pip {'pip-high' if sev in ('critical','high') else 'pip-medium'}">{'!' if sev=='critical' else '⚠'}</div></div>
             </div>"""
 
-    # â”€â”€ Event Calendar â”€â”€
-    cal_rows = ""
-    shown = 0
-    now_utc = datetime.now(timezone.utc)
-    for e in events[:40]:
-        if not e["date"]:
-            continue
-        # Skip events that have already passed
-        if e["date"] < now_utc - timedelta(hours=1):
-            continue
-        impact_cls = "imp-high" if e["impact"] == "high" else "imp-med"
-        cb_affected = any(
-            e["cb"] in PAIR_CB_MAP.get(p, [])
-            for bot in PORTFOLIO.values() for p in bot["pairs"]
-        )
-        row_cls = "row-highlight" if cb_affected else ""
-        is_past = e["date"] < now_utc
-        if e["actual"]:
-            actual_str = f'<span class="actual-val">{e["actual"]}</span>'
-        elif is_past:
-            actual_str = '<span class="pending">â€“</span>'
-        else:
-            actual_str = '<span class="pending">pending</span>'
-        cal_rows += f"""
-        <tr class="{row_cls}">
-          <td>{e['date'].strftime('%a %b %d') if e['date'] else 'â€“'}</td>
-          <td>{e['date'].strftime('%H:%M') if e['date'] else 'â€“'}</td>
-          <td><span class="country-badge">{e['country']}</span></td>
-          <td class="event-title">{e['title']}</td>
-          <td><span class="{impact_cls}">{e['impact'].upper()}</span></td>
-          <td>{e['forecast'] or 'â€“'}</td>
-          <td>{e['previous'] or 'â€“'}</td>
-          <td>{actual_str}</td>
-        </tr>"""
-        shown += 1
-
-    if not shown:
-        cal_rows = '<tr><td colspan="8" class="no-data">No events loaded this run â€” Forex Factory feed may be temporarily unavailable. Data will appear on the next scheduled refresh.</td></tr>'
-
-    # â”€â”€ Portfolio Pair Map â”€â”€
+    # ── Portfolio pair map ──
     pair_rows = ""
     for pair in ALL_PAIRS:
-        cbs  = PAIR_CB_MAP.get(pair, [])
+        cbs_list = PAIR_CB_MAP.get(pair, [])
         bots = [bot for bot, cfg in PORTFOLIO.items() if pair in cfg["pairs"]]
         has_alert = any(a for a in alerts if pair in a["pairs"] and a["days_away"] < 999)
-        risk_cls  = "risk-alert" if has_alert else "risk-ok"
-        cbs_html  = " ".join(f'<span class="cb-badge">{c}</span>' for c in cbs)
-        bots_html = " ".join(f'<span class="bot-badge" style="border-color:{PORTFOLIO[b]["color"]}">{b}</span>' for b in bots)
-        warn_icon = "âš ï¸" if has_alert else "âœ“"
+        cbs_html  = " ".join(f'<span class="asset-tag asset-bonds">{c}</span>' for c in cbs_list)
+        bots_html = " ".join(f'<span class="bot-badge" style="border-color:{PORTFOLIO[b]["color"]};color:{PORTFOLIO[b]["color"]}">{b}</span>' for b in bots)
+        icon = "⚠️" if has_alert else "✓"
+        row_style = "background:rgba(248,81,73,0.05)" if has_alert else ""
         pair_rows += f"""
-        <tr class="{risk_cls}">
-          <td class="pair-name">{pair}</td>
+        <tr style="{row_style}">
+          <td style="font-family:monospace;font-weight:700;font-size:13px;color:#e6edf3">{pair}</td>
           <td>{cbs_html}</td>
           <td>{bots_html}</td>
-          <td class="risk-icon" style="text-align:center">{warn_icon}</td>
+          <td style="text-align:center;font-size:16px">{'<span style="color:var(--accent-red)">⚠️</span>' if has_alert else '<span style="color:var(--accent-green)">✓</span>'}</td>
         </tr>"""
 
-    # â”€â”€ Inline Sparkline SVG â”€â”€
-    def mini_spark(history, css_class="spark-flat"):
-        if not history or len(history) < 2:
-            return ""
-        try:
-            vals = [v for _, v in history]
-        except (TypeError, ValueError):
-            return ""
-        mn, mx = min(vals), max(vals)
-        rng = mx - mn or 0.01
-        w, h = 200, 36
-        n = len(vals)
-        pts = " ".join(
-            f"{int(i*(w/max(n-1,1)))},{int(h - (v-mn)/rng*(h-4)+2)}"
-            for i, v in enumerate(vals)
-        )
-        return (
-            f'<svg class="spark {css_class}" viewBox="0 0 {w} {h}" preserveAspectRatio="none">'
-            f'<polyline points="{pts}" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>'
-            f'</svg>'
-        )
+    # ── Data releases table grouped by country ──
+    from collections import defaultdict as dd2
+    by_country = dd2(list)
+    for e in events:
+        if not e.get("date") or e["date"] < now_utc - timedelta(hours=12):
+            continue
+        by_country[e.get("country","ALL")].append(e)
 
-    spark_lookup = {cb: mini_spark(cb_rates[cb]["history"]) if cb_rates.get(cb) else "" for cb in FRED_SERIES}
-
-    # â”€â”€ Implied Rate Probability Cards â”€â”€
-    implied_html = ""
-    if not implied_moves:
-        implied_html = '<div class="no-implied">Market-implied probability data unavailable â€” forward rate series may not have loaded. Check FRED API key and connectivity.</div>'
-    else:
-        for cb, imp in implied_moves.items():
-            dir_cls   = imp["direction"]
-            pct       = imp["probability"]
-            fill_cls  = {"hike": "imp-hike", "cut": "imp-cut", "hold": "imp-hold"}.get(dir_cls, "imp-hold")
-            pct_cls   = {"hike": "hike", "cut": "cut", "hold": "hold"}.get(dir_cls, "hold")
-            dir_label = {"hike": "â–² HIKE", "cut": "â–¼ CUT", "hold": "â—† HOLD"}.get(dir_cls, dir_cls.upper())
-            # For hold: show hold confidence (100 - move prob). For hike/cut: show move prob.
-            display_pct = (100 - pct) if dir_cls == "hold" else pct
-            display_pct = min(int(display_pct), 99)
-            next_mtg  = imp.get("next_meeting", "")
-            next_mtg_str = f"ðŸ“… {next_mtg} &nbsp;Â·&nbsp; " if next_mtg else ""
-            source_str   = imp.get("fwd_label", "")
-            implied_html += f"""
-            <div class="implied-card">
-              <div class="imp-cb">{cb}</div>
-              <div class="imp-label">Probability of next move</div>
-              <span class="imp-pct {pct_cls}">{dir_label} &nbsp;{display_pct}%</span>
-              <div class="imp-prob-bar">
-                <div class="imp-prob-fill {fill_cls}" style="width:{display_pct}%"></div>
-              </div>
-              <div class="imp-rates">Current: {imp['current_rate']}% â†’ Fwd: {imp['forward_rate']}% ({imp['spread_bp']:+.1f}bp)</div>
-              <div class="imp-source">{next_mtg_str}{source_str}</div>
+    data_releases_html = ""
+    for country in sorted(by_country.keys()):
+        flag = COUNTRY_FLAGS.get(country, "🌐")
+        rows = ""
+        for e in sorted(by_country[country], key=lambda x: x["date"]):
+            impact = e.get("impact","medium")
+            imp_cls = "imp-high" if impact == "high" else "imp-med"
+            act = e.get("actual","")
+            act_html = f'<span style="color:var(--accent-green);font-weight:600">{act}</span>' if act else '<span style="color:var(--text-muted)">–</span>'
+            cb_hit = any(e["cb"] in PAIR_CB_MAP.get(p,[]) for bot in PORTFOLIO.values() for p in bot["pairs"])
+            row_style = "background:rgba(88,166,255,0.04)" if cb_hit else ""
+            rows += f"""<tr style="{row_style}">
+              <td class="td-date">{e["date"].strftime("%a %b %d")}<br/><span style="color:var(--text-muted)">{e["date"].strftime("%H:%M")} UTC</span></td>
+              <td class="td-name">{e["title"]}</td>
+              <td class="td-exp">{e.get("forecast") or "–"}</td>
+              <td class="td-prior">{e.get("previous") or "–"}</td>
+              <td>{act_html}</td>
+              <td><span class="{imp_cls}">{impact.upper()}</span></td>
+            </tr>"""
+        if rows:
+            data_releases_html += f"""
+            <div class="data-section">
+              <div class="section-title">{flag} {country}</div>
+              <table><thead><tr>
+                <th>Date / Time</th><th>Indicator</th><th>Expected</th><th>Prior</th><th>Actual</th><th>Impact</th>
+              </tr></thead><tbody>{rows}</tbody></table>
             </div>"""
 
-    # â”€â”€ Full HTML â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    if not data_releases_html:
+        data_releases_html = '<div class="no-data-msg">No upcoming data releases in the calendar feed.</div>'
+
+    # ── Risk radar — auto-generated from implied moves + alerts ──
+    risk_cards_html = ""
+    # CB divergence card
+    hikers = [cb for cb, imp in (implied_moves or {}).items() if imp["direction"]=="hike" and imp["probability"]>30]
+    cutters = [cb for cb, imp in (implied_moves or {}).items() if imp["direction"]=="cut" and imp["probability"]>30]
+    if hikers or cutters:
+        risk_level = "fill-high" if (hikers and cutters) else "fill-elevated"
+        risk_lbl   = "lbl-high" if (hikers and cutters) else "lbl-elevated"
+        risk_lbl_txt = "HIGH" if (hikers and cutters) else "ELEVATED"
+        hike_txt = ", ".join(hikers) if hikers else "none"
+        cut_txt  = ", ".join(cutters) if cutters else "none"
+        risk_cards_html += f"""
+        <div class="risk-card">
+          <div class="risk-header"><div class="risk-icon">🏦</div>
+            <div class="risk-title" style="color:var(--accent-orange)">CB Policy Divergence</div></div>
+          <div class="risk-body">Market pricing hike signals from: <strong>{hike_txt}</strong>. Cut signals from: <strong>{cut_txt}</strong>. Diverging policy paths create cross-currency volatility risk for your active pairs.</div>
+          <div class="risk-level"><div class="risk-bar"><div class="risk-bar-fill {risk_level}"></div></div><div class="risk-lbl {risk_lbl}">{risk_lbl_txt}</div></div>
+        </div>"""
+
+    # Per-CB high-probability cards
+    for cb, imp in (implied_moves or {}).items():
+        if imp["direction"] == "hold" or imp["probability"] < 40:
+            continue
+        direction = imp["direction"]
+        prob = imp["probability"]
+        fill = "fill-critical" if prob > 70 else ("fill-high" if prob > 55 else "fill-elevated")
+        lbl  = "CRITICAL" if prob > 70 else ("HIGH" if prob > 55 else "ELEVATED")
+        lbl_cls = "lbl-critical" if prob > 70 else ("lbl-high" if prob > 55 else "lbl-elevated")
+        color = "var(--accent-red)" if direction=="hike" else "var(--accent-green)"
+        pairs_affected = [p for p, cbs in PAIR_CB_MAP.items() if cb in cbs]
+        pairs_txt = ", ".join(pairs_affected) if pairs_affected else "–"
+        risk_cards_html += f"""
+        <div class="risk-card">
+          <div class="risk-header"><div class="risk-icon">{CB_FLAGS.get(cb,"🏦")}</div>
+            <div class="risk-title" style="color:{color}">{CB_FULLNAMES.get(cb,cb)} — {direction.upper()} RISK</div></div>
+          <div class="risk-body">{prob}% market-implied probability of a {direction} at the {imp.get("next_meeting","upcoming")} meeting. Forward rate: {imp["forward_rate"]}% vs current {imp["current_rate"]}% ({imp["spread_bp"]:+.1f}bp). Exposed pairs: <strong>{pairs_txt}</strong>.</div>
+          <div class="risk-level"><div class="risk-bar"><div class="risk-bar-fill {fill}"></div></div><div class="risk-lbl {lbl_cls}">{lbl}</div></div>
+        </div>"""
+
+    # Multi-asset impact matrix — built from implied data
+    matrix_rows = ""
+    for cb, imp in (implied_moves or {}).items():
+        if imp["direction"] == "hold":
+            continue
+        direction = imp["direction"]
+        prob = imp["probability"]
+        if prob < 25:
+            continue
+        s_green = "color:var(--accent-green)"
+        s_red   = "color:var(--accent-red)"
+        s_muted = "color:var(--text-muted)"
+        if direction == "hike":
+            eq_txt,  eq_s   = "↓ Risk-off",  s_red
+            bd_txt,  bd_s   = "↑ Yields up", s_red
+            usd_txt, usd_s  = ("↑ Stronger", s_green) if cb=="FED" else ("Neutral", s_muted)
+            gold_txt,gold_s = "↓ Pressured", s_red
+            fx_txt          = "AUD ↑" if cb=="RBA" else "JPY ↑" if cb=="BOJ" else "USD ↑" if cb=="FED" else "CAD ↑" if cb=="BOC" else "EUR ↑" if cb=="ECB" else "GBP ↑"
+        else:
+            eq_txt,  eq_s   = "↑ Rally",    s_green
+            bd_txt,  bd_s   = "↑ Bonds bid",s_green
+            usd_txt, usd_s  = ("↓ Weaker",  s_red) if cb=="FED" else ("Neutral", s_muted)
+            gold_txt,gold_s = "↑ Bid",      s_green
+            fx_txt          = "GBP ↓" if cb=="BOE" else "CAD ↓" if cb=="BOC" else "EUR ↓" if cb=="ECB" else "AUD ↓" if cb=="RBA" else "JPY ↓" if cb=="BOJ" else "USD ↓"
+        matrix_rows += f"""<tr>
+          <td class="td-name">{CB_FLAGS.get(cb,"")} {CB_FULLNAMES.get(cb,cb)} {direction.upper()} ({prob}%)</td>
+          <td style="{eq_s}">{eq_txt}</td>
+          <td style="{bd_s}">{bd_txt}</td>
+          <td style="{usd_s}">{usd_txt}</td>
+          <td style="{gold_s}">{gold_txt}</td>
+          <td style="color:var(--accent-purple)">{fx_txt}</td>
+        </tr>"""
+
+    matrix_html = ""
+    if matrix_rows:
+        matrix_html = f"""
+        <div class="risk-card" style="grid-column:1/-1">
+          <div class="risk-header"><div class="risk-icon">🗺️</div>
+            <div class="risk-title" style="color:var(--accent-purple)">Multi-Asset Impact Matrix</div></div>
+          <div style="overflow-x:auto;margin-top:8px">
+            <table style="min-width:500px">
+              <thead><tr>
+                <th>Scenario</th><th>Equities</th><th>Bonds</th><th>USD</th><th>Gold</th><th>FX Pair</th>
+              </tr></thead>
+              <tbody>{matrix_rows}</tbody>
+            </table>
+          </div>
+        </div>"""
+
+    if not risk_cards_html and not matrix_html:
+        risk_cards_html = '<div class="no-data-msg">No significant risk signals detected — all CBs hold with low probability of change.</div>'
+
+    # ── Full HTML ──
     html = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="refresh" content="3600">
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+CiAgPHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iNiIgZmlsbD0iIzA4MDgwZiIvPgogIDxsaW5lIHgxPSI3IiB5MT0iNCIgeDI9IjciIHkyPSIyOCIgc3Ryb2tlPSIjYTc4YmZhIiBzdHJva2Utd2lkdGg9IjEuNSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+CiAgPGxpbmUgeDE9IjE2IiB5MT0iNiIgeDI9IjE2IiB5Mj0iMjYiIHN0cm9rZT0iIzIyYzU1ZSIgc3Ryb2tlLXdpZHRoPSIxLjUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPgogIDxsaW5lIHgxPSIyNSIgeTE9IjUiIHgyPSIyNSIgeTI9IjI3IiBzdHJva2U9IiNmNTllMGIiIHN0cm9rZS13aWR0aD0iMS41IiBzdHJva2UtbGluZWNhcD0icm91bmQiLz4KICA8cmVjdCB4PSI0IiB5PSIxMCIgd2lkdGg9IjYiIGhlaWdodD0iMTIiIHJ4PSIxIiBmaWxsPSIjYTc4YmZhIi8+CiAgPHJlY3QgeD0iMTMiIHk9IjgiIHdpZHRoPSI2IiBoZWlnaHQ9IjgiIHJ4PSIxIiBmaWxsPSIjMjJjNTVlIi8+CiAgPHJlY3QgeD0iMjIiIHk9IjE0IiB3aWR0aD0iNiIgaGVpZ2h0PSIxMCIgcng9IjEiIGZpbGw9IiNmNTllMGIiLz4KPC9zdmc+">
-<title>Macro Dashboard â€” FX Bot Portfolio</title>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&family=Barlow:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<title>Macro Intel — FX Bot Dashboard</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,{fav_b64}">
 <style>
 :root {{
-  --bg:       #08080f;
-  --card:     #10101a;
-  --card2:    #14141f;
-  --border:   #1e1e30;
-  --border2:  #2a2a40;
-  --red:      #ff3b3b;
-  --amber:    #f59e0b;
-  --green:    #22c55e;
-  --blue:     #60a5fa;
-  --purple:   #a78bfa;
-  --text:     #ddddf0;
-  --dim:      #9999cc;
-  --dimmer:   #6666aa;
+  --bg:             #0d1117;
+  --surface:        #161b22;
+  --card:           #1c2333;
+  --border:         #30363d;
+  --accent-blue:    #58a6ff;
+  --accent-green:   #3fb950;
+  --accent-red:     #f85149;
+  --accent-yellow:  #e3b341;
+  --accent-purple:  #bc8cff;
+  --accent-orange:  #ffa657;
+  --accent-cyan:    #79c0ff;
+  --text-primary:   #e6edf3;
+  --text-secondary: #8b949e;
+  --text-muted:     #6e7681;
+  --tag-hold:       #1f4068;
+  --tag-cut:        #1a3a2a;
+  --tag-hike:       #3a1a1a;
+  --tag-watch:      #2a2a1a;
 }}
-*, *::before, *::after {{ box-sizing: border-box; margin: 0; padding: 0; }}
-html {{ scroll-behavior: smooth; }}
+* {{ box-sizing: border-box; margin: 0; padding: 0; }}
 body {{
   background: var(--bg);
-  color: var(--text);
-  font-family: 'Barlow', sans-serif;
-  font-size: 14px;
-  min-height: 100vh;
-  background-image:
-    radial-gradient(ellipse 80% 50% at 50% -20%, #1a0a3a44 0%, transparent 60%),
-    repeating-linear-gradient(0deg, transparent, transparent 40px, #ffffff03 40px, #ffffff03 41px),
-    repeating-linear-gradient(90deg, transparent, transparent 40px, #ffffff03 40px, #ffffff03 41px);
+  color: var(--text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
 }}
 
-/* â”€â”€ Header â”€â”€ */
+/* ── Header ── */
 .header {{
-  padding: 40px 40px 24px;
+  background: linear-gradient(135deg, #0d1117 0%, #161b22 100%);
   border-bottom: 1px solid var(--border);
+  padding: 20px 24px 14px;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  flex-wrap: wrap;
   gap: 16px;
 }}
 .header-left h1 {{
-  font-family: 'Barlow', sans-serif;
-  font-size: 30px;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: #fff;
-}}
-.header-left h1 span {{ color: var(--purple); }}
-.header-sub {{
-  color: var(--dim);
-  font-size: 13px;
-  margin-top: 6px;
-  letter-spacing: 0.03em;
-  font-weight: 500;
-}}
-.header-right {{
-  text-align: right;
-}}
-.updated-label {{
-  font-size: 11px;
-  color: #8888bb;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  font-family: 'IBM Plex Mono', monospace;
-}}
-.updated-time {{
-  font-size: 12px;
-  color: var(--dim);
-  margin-top: 4px;
-  font-family: 'IBM Plex Mono', monospace;
-}}
-.live-dot {{
-  display: inline-block;
-  width: 7px; height: 7px;
-  border-radius: 50%;
-  background: var(--green);
-  margin-right: 6px;
-  animation: pulse 2s infinite;
-}}
-@keyframes pulse {{
-  0%, 100% {{ opacity: 1; box-shadow: 0 0 0 0 #22c55e66; }}
-  50% {{ opacity: 0.7; box-shadow: 0 0 0 5px #22c55e00; }}
-}}
-
-/* â”€â”€ Layout â”€â”€ */
-.main {{ padding: 32px 40px; display: flex; flex-direction: column; gap: 36px; }}
-.section-title {{
-  font-family: 'Barlow', sans-serif;
-  font-size: 12px;
+  font-size: 22px;
   font-weight: 700;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--dim);
-  margin-bottom: 18px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid var(--border);
+  color: var(--accent-blue);
+  letter-spacing: -0.3px;
 }}
+.header-left h1 span {{ color: var(--text-primary); }}
+.header-left .subtitle {{
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 3px;
+}}
+.header-badges {{ display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }}
+.badge {{
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+}}
+.badge-red    {{ background: rgba(248,81,73,0.18);   color: var(--accent-red);    border: 1px solid rgba(248,81,73,0.35); }}
+.badge-yellow {{ background: rgba(227,179,65,0.18);  color: var(--accent-yellow); border: 1px solid rgba(227,179,65,0.35); }}
+.badge-blue   {{ background: rgba(88,166,255,0.12);  color: var(--accent-blue);   border: 1px solid rgba(88,166,255,0.3); }}
+.badge-green  {{ background: rgba(63,185,80,0.12);   color: var(--accent-green);  border: 1px solid rgba(63,185,80,0.3); }}
+.header-timestamp {{
+  text-align: right;
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  margin-top: 4px;
+  font-family: monospace;
+}}
+.auto-refresh {{ color: var(--accent-green); font-size: 10px; }}
 
-/* â”€â”€ CB Rate Cards â”€â”€ */
+/* ── Summary row ── */
+.summary-row {{
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+  margin-bottom: 20px;
+}}
+.summary-card {{
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px;
+  text-align: center;
+}}
+.summary-card .val {{ font-size: 28px; font-weight: 700; line-height: 1; }}
+.summary-card .lbl {{ font-size: 11px; color: var(--text-secondary); margin-top: 5px; }}
+.val-red {{ color: var(--accent-red); }}
+.val-yellow {{ color: var(--accent-yellow); }}
+.val-blue {{ color: var(--accent-blue); }}
+.val-green {{ color: var(--accent-green); }}
+.val-orange {{ color: var(--accent-orange); }}
+
+/* ── Section title ── */
+.section-title {{
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}}
+.section-title::after {{ content: ''; flex: 1; height: 1px; background: var(--border); }}
+
+/* ── CB Cards ── */
 .cb-grid {{
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 12px;
+  margin-bottom: 20px;
 }}
 .cb-card {{
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: 10px;
-  padding: 20px 20px 12px;
+  padding: 16px;
   position: relative;
-  overflow: visible;
+  overflow: hidden;
   transition: border-color 0.2s, transform 0.15s;
 }}
-.cb-card::before {{
-  content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 3px;
+.cb-card:hover {{ transform: translateY(-2px); border-color: #444d56; }}
+.cb-card-glow {{
+  position: absolute; top: 0; right: 0;
+  width: 70px; height: 70px;
+  border-radius: 50%;
+  opacity: 0.07;
 }}
-.trend-up::before   {{ background: linear-gradient(90deg, var(--green), #4ade80); }}
-.trend-down::before {{ background: linear-gradient(90deg, var(--red), #ff6b6b); }}
-.trend-flat::before {{ background: linear-gradient(90deg, var(--blue), #93c5fd); }}
-.cb-card:hover {{ border-color: var(--border2); transform: translateY(-1px); }}
-.cb-header {{
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
-  line-height: 1;
+.cb-hold .cb-card-glow {{ background: var(--accent-blue); }}
+.cb-hold {{ border-top: 2px solid var(--accent-blue); }}
+.cb-cut  .cb-card-glow {{ background: var(--accent-green); }}
+.cb-cut  {{ border-top: 2px solid var(--accent-green); }}
+.cb-hike .cb-card-glow {{ background: var(--accent-red); }}
+.cb-hike {{ border-top: 2px solid var(--accent-red); }}
+.cb-header {{ display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }}
+.cb-flag {{ font-size: 22px; line-height: 1; }}
+.cb-name {{ font-weight: 700; font-size: 13px; color: var(--text-primary); line-height: 1.2; }}
+.cb-date {{ font-size: 10px; color: var(--text-muted); margin-top: 2px; }}
+.cb-rate-row {{ display: flex; align-items: baseline; gap: 8px; margin-bottom: 5px; }}
+.cb-current-rate {{ font-size: 26px; font-weight: 700; color: var(--accent-blue); }}
+.cb-rate-label {{ font-size: 11px; color: var(--text-muted); }}
+.cb-exp {{ font-size: 12px; color: var(--text-secondary); margin-bottom: 6px; }}
+.exp-val {{ color: var(--accent-yellow); font-weight: 600; }}
+.cb-bps {{
+  font-size: 11px; font-weight: 700;
+  padding: 2px 9px; border-radius: 20px;
+  display: inline-block; margin-bottom: 8px;
 }}
-.cb-currency {{
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 11px;
-  font-weight: 700;
-  color: #7070a0;
-  letter-spacing: 0.08em;
-  line-height: 1;
-  display: flex;
-  align-items: center;
-  padding: 2px 5px;
-  background: #ffffff0a;
-  border: 1px solid #2a2a45;
-  border-radius: 3px;
-}}
-.cb-name {{
-  font-family: 'Barlow', sans-serif;
-  font-size: 15px;
-  font-weight: 800;
-  color: #fff;
-  flex: 1;
-  letter-spacing: 0.04em;
-  line-height: 1;
-}}
-.arrow {{ font-size: 12px; line-height: 1; display: flex; align-items: center; }}
-.arrow.up   {{ color: var(--green); }}
-.arrow.down {{ color: var(--red); }}
-.arrow.flat {{ color: var(--blue); font-size: 9px; }}
-.cb-rate {{
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 34px;
-  font-weight: 700;
-  color: #fff;
-  letter-spacing: -1px;
-  line-height: 1;
-}}
-.cb-sub  {{ font-size: 12px; color: #b0b0d8; margin-top: 6px; font-weight: 600; }}
-.cb-prev {{ font-size: 12px; color: #a0a0cc; margin-top: 4px; font-family: 'IBM Plex Mono', monospace; }}
-.cb-asof {{ font-size: 11px; color: #8888bb; margin-top: 4px; font-family: 'IBM Plex Mono', monospace; }}
-.cb-spark-label {{ font-size: 10px; color: #5555888; margin-top: 2px; font-family: 'IBM Plex Mono', monospace; letter-spacing: 0.05em; }}
-.spark {{
-  display: block;
-  width: 100%;
-  height: 40px;
-  margin-top: 10px;
-  margin-bottom: 2px;
-  overflow: visible;
-}}
-.spark-up   {{ color: #4ade80; }}
-.spark-down {{ color: #ff6060; }}
-.spark-flat {{ color: #93c5fd; }}
+.bps-hold {{ background: rgba(88,166,255,0.12);  color: var(--accent-blue); }}
+.bps-cut  {{ background: rgba(63,185,80,0.12);   color: var(--accent-green); }}
+.bps-hike {{ background: rgba(248,81,73,0.12);   color: var(--accent-red); }}
+.cb-asof {{ font-size: 10px; color: var(--text-muted); margin-top: 4px; font-family: monospace; }}
 
-/* â”€â”€ Alerts â”€â”€ */
-.alerts-grid {{
+/* Sparklines */
+.spark {{ width: 100%; height: 36px; overflow: visible; display: block; margin: 8px 0 2px; }}
+.spark-up   {{ color: var(--accent-green); }}
+.spark-down {{ color: var(--accent-red); }}
+.spark-flat {{ color: var(--accent-blue); }}
+
+/* ── Event / Timeline cards ── */
+.timeline {{ display: flex; flex-direction: column; gap: 14px; }}
+.day-group {{ }}
+.day-label {{
+  font-size: 11px; font-weight: 700;
+  color: var(--text-muted);
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  padding: 6px 0 6px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 8px;
+  display: flex; align-items: center; gap: 8px;
+}}
+.day-dot {{ width: 6px; height: 6px; border-radius: 50%; background: var(--accent-blue); flex-shrink: 0; }}
+.event-cards {{ display: flex; flex-direction: column; gap: 6px; }}
+.event-card {{
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 14px;
+  display: grid;
+  grid-template-columns: 80px 1fr auto;
+  gap: 12px;
+  align-items: start;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  position: relative;
+}}
+.event-card:hover {{ border-color: var(--accent-blue); background: rgba(88,166,255,0.04); }}
+.event-card.expanded {{ border-color: var(--accent-blue); }}
+.event-card::before {{
+  content: ''; position: absolute; left: 0; top: 0; bottom: 0;
+  width: 3px; border-radius: 8px 0 0 8px;
+}}
+.card-high::before   {{ background: var(--accent-red); }}
+.card-medium::before {{ background: var(--accent-yellow); }}
+.card-low::before    {{ background: var(--accent-blue); }}
+.event-time {{ font-size: 11px; color: var(--text-secondary); padding-top: 2px; font-family: monospace; white-space: nowrap; }}
+.event-main {{ }}
+.event-header {{ display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }}
+.flag {{ font-size: 14px; line-height: 1; }}
+.event-name {{ font-weight: 600; font-size: 13px; color: var(--text-primary); }}
+.region-tag {{
+  font-size: 10px; color: var(--text-muted);
+  background: rgba(255,255,255,0.06);
+  padding: 2px 6px; border-radius: 4px;
+}}
+.rate-badge {{
+  font-size: 10px; font-weight: 700;
+  padding: 2px 8px; border-radius: 12px;
+  letter-spacing: 0.3px; white-space: nowrap;
+}}
+.rate-hold  {{ background: var(--tag-hold);  color: var(--accent-cyan);   border: 1px solid rgba(88,166,255,0.3); }}
+.rate-cut   {{ background: var(--tag-cut);   color: var(--accent-green);  border: 1px solid rgba(63,185,80,0.3); }}
+.rate-hike  {{ background: var(--tag-hike);  color: var(--accent-red);    border: 1px solid rgba(248,81,73,0.3); }}
+.rate-watch {{ background: var(--tag-watch); color: var(--accent-yellow); border: 1px solid rgba(227,179,65,0.3); }}
+.event-impact {{ text-align: right; }}
+.impact-pip {{
+  width: 26px; height: 26px; border-radius: 50%;
+  font-size: 11px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  margin-left: auto;
+}}
+.pip-high   {{ background: rgba(248,81,73,0.2);   color: var(--accent-red);    border: 1px solid var(--accent-red); }}
+.pip-medium {{ background: rgba(227,179,65,0.2);  color: var(--accent-yellow); border: 1px solid var(--accent-yellow); }}
+.pip-low    {{ background: rgba(88,166,255,0.15); color: var(--accent-blue);   border: 1px solid var(--accent-blue); }}
+
+/* Expand detail */
+.event-detail {{ display: none; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); grid-column: 1/-1; }}
+.event-detail.open {{ display: block; }}
+.detail-grid {{
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 8px; margin-bottom: 8px;
+}}
+.detail-box {{
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border);
+  border-radius: 6px; padding: 8px 10px;
+}}
+.detail-box .dlbl {{ font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 3px; }}
+.detail-box .dval {{ font-size: 12px; color: var(--text-primary); }}
+.detail-box .dval.expected {{ color: var(--accent-yellow); }}
+.detail-box .dval.prior    {{ color: var(--text-secondary); }}
+.impact-row {{ display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }}
+.asset-tag {{ font-size: 11px; padding: 3px 8px; border-radius: 4px; font-weight: 500; }}
+.asset-equities   {{ background: rgba(63,185,80,0.12);  color: #3fb950; }}
+.asset-bonds      {{ background: rgba(88,166,255,0.12); color: #58a6ff; }}
+.asset-fx         {{ background: rgba(188,140,255,0.12);color: #bc8cff; }}
+.asset-commodities{{ background: rgba(255,166,87,0.12); color: #ffa657; }}
+
+/* ── Data table ── */
+.data-section {{ margin-bottom: 24px; }}
+table {{ width: 100%; border-collapse: collapse; }}
+th {{
+  text-align: left; font-size: 10px; font-weight: 600;
+  color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;
+  padding: 7px 10px;
+  background: rgba(255,255,255,0.04);
+  border-bottom: 1px solid var(--border);
+}}
+td {{
+  padding: 9px 10px; font-size: 12px;
+  border-bottom: 1px solid rgba(48,54,61,0.5);
+  vertical-align: top;
+}}
+tr:hover td {{ background: rgba(255,255,255,0.025); }}
+.td-date  {{ color: var(--text-secondary); white-space: nowrap; font-family: monospace; font-size: 11px; }}
+.td-name  {{ color: var(--text-primary); font-weight: 500; }}
+.td-exp   {{ color: var(--accent-yellow); font-weight: 600; }}
+.td-prior {{ color: var(--text-secondary); }}
+.imp-high {{ color: var(--accent-red);    font-weight: 700; }}
+.imp-med  {{ color: var(--accent-yellow); font-weight: 700; }}
+
+/* ── Portfolio pair map ── */
+.bot-badge {{
+  display: inline-block; border: 1px solid;
+  border-radius: 3px; padding: 2px 8px;
+  font-size: 12px; font-weight: 600;
+  margin-right: 4px; background: rgba(255,255,255,0.04);
+}}
+
+/* ── Risk radar ── */
+.risk-grid {{
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 12px;
 }}
-.alert-card {{
-  background: var(--card);
-  border-radius: 8px;
-  padding: 16px;
-  border: 1px solid var(--border);
-  border-left-width: 4px;
-}}
-.sev-critical {{ border-left-color: var(--red);   background: #1a080840; }}
-.sev-high     {{ border-left-color: var(--amber);  background: #1a100040; }}
-.sev-medium   {{ border-left-color: var(--blue);   background: #08101a40; }}
-.alert-top {{
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-}}
-.alert-cb {{
-  font-family: 'Barlow', sans-serif;
-  font-weight: 800;
-  color: #fff;
-  font-size: 15px;
-  letter-spacing: 0.04em;
-}}
-.alert-sev {{
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  padding: 2px 8px;
-  border-radius: 3px;
-}}
-.sev-critical .alert-sev {{ background: var(--red);   color: #fff; }}
-.sev-high     .alert-sev {{ background: var(--amber); color: #000; }}
-.sev-medium   .alert-sev {{ background: var(--blue);  color: #000; }}
-.alert-event {{ font-size: 14px; color: var(--text); margin-bottom: 6px; line-height: 1.4; font-weight: 500; }}
-.alert-date  {{ font-size: 12px; color: var(--dim); margin-bottom: 8px; font-family: 'IBM Plex Mono', monospace; }}
-.alert-meta  {{ font-size: 11px; color: var(--dim); margin-bottom: 8px; display: flex; gap: 12px; }}
-.forecast      {{ color: var(--blue); }}
-.forecast-prev {{ color: #9898c8; }}
-.alert-pairs, .alert-bots {{ font-size: 11px; margin-top: 4px; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; color: var(--dim); }}
-.pair-tag {{
-  background: #ffffff12;
-  border: 1px solid var(--border2);
-  border-radius: 3px;
-  padding: 1px 6px;
-  font-size: 10px;
-  color: var(--text);
-  font-weight: 700;
-}}
-.bot-tag {{
-  background: #ffffff08;
-  border: 1px solid var(--border);
-  border-radius: 3px;
-  padding: 1px 6px;
-  font-size: 10px;
-  color: var(--dim);
-}}
-.no-alerts {{
+.risk-card {{
   background: var(--card);
   border: 1px solid var(--border);
-  border-left: 4px solid var(--green);
-  border-radius: 8px;
-  padding: 20px 24px;
-  color: var(--green);
-  font-size: 13px;
+  border-radius: 8px; padding: 16px;
 }}
+.risk-header {{ display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }}
+.risk-icon   {{ font-size: 20px; }}
+.risk-title  {{ font-weight: 700; font-size: 13px; }}
+.risk-body   {{ font-size: 12px; color: var(--text-secondary); line-height: 1.6; }}
+.risk-level  {{ display: flex; align-items: center; gap: 8px; margin-top: 12px; }}
+.risk-bar    {{ flex: 1; height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }}
+.risk-bar-fill {{ height: 100%; border-radius: 2px; }}
+.risk-lbl    {{ font-size: 10px; font-weight: 700; width: 60px; text-align: right; letter-spacing: 0.5px; }}
+.fill-critical  {{ background: var(--accent-red);    width: 95%; }}
+.fill-high      {{ background: var(--accent-orange); width: 78%; }}
+.fill-elevated  {{ background: var(--accent-yellow); width: 62%; }}
+.fill-moderate  {{ background: var(--accent-blue);   width: 40%; }}
+.lbl-critical   {{ color: var(--accent-red); }}
+.lbl-high       {{ color: var(--accent-orange); }}
+.lbl-elevated   {{ color: var(--accent-yellow); }}
+.lbl-moderate   {{ color: var(--accent-blue); }}
 
-/* â”€â”€ Calendar Table â”€â”€ */
-.table-wrap {{ overflow-x: auto; }}
-table {{
-  width: 100%;
-  border-collapse: collapse;
-}}
-th {{
-  text-align: left;
-  font-size: 12px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: #c0c0e0;
-  padding: 10px 14px;
-  border-bottom: 1px solid var(--border2);
-  font-weight: 700;
-  background: #0e0e1a;
-  font-family: 'Barlow', sans-serif;
-}}
-td {{
-  padding: 10px 14px;
-  border-bottom: 1px solid var(--border);
-  font-size: 13px;
-  color: var(--text);
-}}
-tr:last-child td {{ border-bottom: none; }}
-tr:hover td {{ background: #ffffff04; }}
-.row-highlight td {{ background: #a78bfa0a; }}
-.row-highlight:hover td {{ background: #a78bfa12; }}
-.event-title {{ max-width: 280px; }}
-.country-badge {{
-  background: var(--card2);
-  border: 1px solid var(--border2);
-  border-radius: 3px;
-  padding: 1px 6px;
-  font-size: 10px;
-  font-weight: 700;
-}}
-.imp-high {{ color: var(--red);   font-weight: 700; font-size: 10px; }}
-.imp-med  {{ color: var(--amber); font-weight: 700; font-size: 10px; }}
-.actual-val {{ color: var(--green); font-weight: 700; }}
-.pending    {{ color: var(--dimmer); font-style: italic; }}
-.no-data    {{ color: var(--dimmer); text-align: center; padding: 24px; }}
-
-/* â”€â”€ Portfolio Map â”€â”€ */
-.portfolio-table {{ background: var(--card); border-radius: 8px; overflow: hidden; border: 1px solid var(--border); }}
-.risk-ok    td {{ }}
-.risk-alert td {{ background: #ff3b3b08; }}
-.pair-name {{
-  font-family: 'IBM Plex Mono', monospace;
-  font-weight: 700;
-  color: #fff;
-  font-size: 14px;
-  letter-spacing: 0.05em;
-}}
-.cb-badge {{
-  display: inline-block;
-  background: #ffffff10;
-  border: 1px solid var(--border2);
-  border-radius: 3px;
-  padding: 1px 7px;
-  font-size: 10px;
-  font-weight: 700;
-  margin-right: 4px;
-  color: var(--blue);
-}}
-.bot-badge {{
-  display: inline-block;
-  border: 1px solid;
-  border-radius: 3px;
-  padding: 3px 10px;
-  font-size: 13px;
-  font-weight: 600;
-  margin-right: 4px;
-  color: var(--text);
-  background: #ffffff06;
-}}
-.risk-icon {{ font-size: 16px; text-align: center; vertical-align: middle; line-height: 1; width: 70px; }}
-.risk-ok    .risk-icon {{ color: var(--green); }}
-.risk-alert .risk-icon {{ color: var(--amber); }}
-
-/* â”€â”€ Footer â”€â”€ */
+/* ── Footer ── */
 .footer {{
-  padding: 24px 40px;
+  text-align: center;
+  padding: 14px 24px;
+  font-size: 11px;
+  color: var(--text-muted);
   border-top: 1px solid var(--border);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  color: #8888bb;
-  font-size: 11px;
-  flex-wrap: wrap;
-  gap: 8px;
-  font-family: 'IBM Plex Mono', monospace;
-}}
-.footer a {{ color: var(--dim); text-decoration: none; }}
-.footer a:hover {{ color: var(--text); }}
-
-@media (max-width: 600px) {{
-  .header, .main, .footer {{ padding-left: 16px; padding-right: 16px; }}
-  .cb-grid {{ grid-template-columns: repeat(2, 1fr); }}
+  margin-top: 8px;
+  font-family: monospace;
 }}
 
-/* â”€â”€ Pause Recommendations â”€â”€ */
-.pause-rec {{
-  display: inline-block;
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  padding: 3px 10px;
-  border-radius: 3px;
-  margin-bottom: 8px;
-}}
-.pause-critical {{ background: var(--red);   color: #fff; }}
-.pause-high     {{ background: var(--amber); color: #000; }}
-.pause-medium   {{ background: #1e3a5f;      color: var(--blue); border: 1px solid var(--blue); }}
+/* ── Misc ── */
+.no-data-msg {{ color: var(--text-muted); font-size: 12px; padding: 16px 0; font-style: italic; }}
 
-/* â”€â”€ Outlook Cards â”€â”€ */
-.outlook-card {{
-  opacity: 0.92;
-  position: relative;
+@media (max-width: 640px) {{
+  .event-card {{ grid-template-columns: 1fr; }}
+  .cb-grid {{ grid-template-columns: 1fr 1fr; }}
+  .summary-row {{ grid-template-columns: repeat(2,1fr); }}
+  .tabs {{ overflow-x: auto; }}
 }}
-.outlook-card::after {{
-  content: '7â€“14 DAYS';
-  position: absolute;
-  top: 10px; right: 12px;
-  font-size: 9px;
-  font-family: 'IBM Plex Mono', monospace;
-  letter-spacing: 0.1em;
-  color: var(--dimmer);
-}}
-.days-badge {{
-  font-size: 11px;
-  color: var(--dim);
-  font-family: 'IBM Plex Mono', monospace;
-}}
-.implied-badge {{
-  font-size: 11px;
-  color: var(--blue);
-  background: #0a1a2e;
-  border: 1px solid #1e3a5f;
-  border-radius: 4px;
-  padding: 5px 10px;
-  margin-bottom: 8px;
-  font-family: 'IBM Plex Mono', monospace;
-}}
-
-/* â”€â”€ Implied Rates Table â”€â”€ */
-.implied-grid {{
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 14px;
-}}
-.implied-card {{
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 22px 22px 18px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  transition: border-color 0.2s, transform 0.15s;
-}}
-.implied-card:hover {{ border-color: var(--border2); transform: translateY(-2px); }}
-.imp-cb {{ font-family: 'Barlow', sans-serif; font-weight: 800; font-size: 20px; color: #fff; letter-spacing: 0.04em; }}
-.imp-source {{ font-size: 12px; color: #c0c0e8; margin-top: 4px; font-family: 'IBM Plex Mono', monospace; letter-spacing: 0.03em; font-weight: 600; }}
-.imp-prob-bar {{ height: 7px; background: var(--border2); border-radius: 4px; overflow: hidden; margin: 6px 0 2px; }}
-.imp-prob-fill {{ height: 100%; border-radius: 4px; transition: width 0.3s; }}
-.imp-hike {{ background: linear-gradient(90deg, #ff3b3b, #ff6b6b); }}
-.imp-cut  {{ background: linear-gradient(90deg, #22c55e, #4ade80); }}
-.imp-hold {{ background: linear-gradient(90deg, #60a5fa, #93c5fd); }}
-.imp-label {{ font-size: 12px; color: #b0b0d8; font-weight: 500; margin-bottom: 2px; }}
-.imp-pct   {{ font-family: 'IBM Plex Mono', monospace; font-size: 26px; font-weight: 700; line-height: 1.1; }}
-.imp-pct.hike {{ color: var(--red); }}
-.imp-pct.cut  {{ color: var(--green); }}
-.imp-pct.hold {{ color: var(--blue); }}
-.imp-rates {{ font-size: 12px; color: #9898c8; font-family: 'IBM Plex Mono', monospace; line-height: 1.5; }}
-.no-implied {{ color: var(--dimmer); font-size: 12px; padding: 12px 0; font-style: italic; }}
 </style>
 </head>
 <body>
 
-
-<header class="header">
+<div class="header">
   <div class="header-left">
     <h1>MACRO <span>INTEL</span></h1>
-    <div class="header-sub">FX Bot Portfolio Â· Volatility Monitor Â· Central Bank Tracker</div>
+    <div class="subtitle">FX Bot Portfolio · Volatility Monitor · Central Bank Tracker</div>
+    <div class="header-badges">
+      {''.join(f'<span class="badge badge-{"red" if a["severity"] in ("critical","high") else "yellow"}">⚠ {a["event"][:40]}</span>' for a in sorted(alerts, key=lambda x: x["days_away"])[:3] if a.get("days_away",999)<3)}
+    </div>
   </div>
-  <div class="header-right">
-    <div class="updated-label"><span class="live-dot"></span>Auto-refreshes hourly</div>
-    <div class="updated-time">{now_str}</div>
+  <div class="header-timestamp">
+    <div class="auto-refresh">● AUTO-REFRESHES HOURLY</div>
+    {now_str}
   </div>
-</header>
+</div>
 
-<main class="main">
+<main style="max-width:1400px;margin:0 auto;padding:20px 24px 40px">
 
-  <!-- â”€â”€ Section 1: CB Rates â”€â”€ -->
-  <section>
-    <div class="section-title">Central Bank Policy Rates</div>
-    <div class="cb-grid">
-      {cb_cards_html}
-    </div>
-  </section>
+  <!-- ── Summary Stats ── -->
+  {summary_html}
 
-  <!-- â”€â”€ Section 2: Market-Implied Next Move â”€â”€ -->
-  <section>
-    <div class="section-title">ðŸ“Š Market-Implied Rate Move Probability</div>
-    <div class="implied-grid">
-      {implied_html}
-    </div>
-  </section>
+  <!-- ── Central Bank Rates ── -->
+  <div class="section-title" style="margin-bottom:12px">🏦 Central Bank Policy Rates</div>
+  <div class="cb-grid" style="margin-bottom:32px">
+    {cb_cards_html}
+  </div>
 
-  <!-- â”€â”€ Section 3: Confirmed Alerts 0-7 days â”€â”€ -->
-  <section>
-    <div class="section-title">âš  Portfolio Volatility Alerts â€” Next 7 Days</div>
-    <div class="alerts-grid">
-      {alert_html}
-    </div>
-  </section>
+  <!-- ── Portfolio Volatility Alerts ── -->
+  <div class="section-title" style="margin-bottom:12px">📡 Portfolio Volatility Alerts — Next 7 Days</div>
+  <div class="event-cards" style="margin-bottom:32px">
+    {alert_cards}
+  </div>
 
-  <!-- â”€â”€ Section 4: Portfolio Pair Map â”€â”€ -->
-  <section>
-    <div class="section-title">Portfolio Pair Exposure Map</div>
-    <div class="portfolio-table">
-      <table>
-        <thead>
-          <tr>
-            <th>Pair</th>
-            <th>Central Banks</th>
-            <th>Active Bots</th>
-            <th style="text-align:center;width:70px">Alert</th>
-          </tr>
-        </thead>
-        <tbody>
-          {pair_rows}
-        </tbody>
-      </table>
-    </div>
-  </section>
+  <!-- ── Event Calendar ── -->
+  <div class="section-title" style="margin-bottom:12px">📅 Economic Calendar</div>
+  <div class="timeline" style="margin-bottom:32px">
+    {timeline_html}
+  </div>
 
-  <!-- â”€â”€ Section 6: Event Calendar â”€â”€ -->
-  <section>
-    <div class="section-title">High-Impact Economic Calendar â€” Next 14 Days</div>
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Date</th>
-            <th>Time (UTC)</th>
-            <th>Country</th>
-            <th>Event</th>
-            <th>Impact</th>
-            <th>Forecast</th>
-            <th>Previous</th>
-            <th>Actual</th>
-          </tr>
-        </thead>
-        <tbody>
-          {cal_rows}
-        </tbody>
-      </table>
-    </div>
-  </section>
+  <!-- ── Risk Radar ── -->
+  <div class="section-title" style="margin-bottom:12px">🎯 Risk Radar</div>
+  <div class="risk-grid" style="margin-bottom:32px">
+    {risk_cards_html}
+    {matrix_html}
+  </div>
+
+  <!-- ── Portfolio Map ── -->
+  <div class="section-title" style="margin-bottom:12px">🤖 Active Bot Pair Exposure</div>
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:32px">
+    <table>
+      <thead><tr>
+        <th>Pair</th><th>Central Banks</th><th>Active Bots</th><th style="text-align:center;width:70px">Alert</th>
+      </tr></thead>
+      <tbody>{pair_rows}</tbody>
+    </table>
+  </div>
 
 </main>
 
-<footer class="footer">
-  <span>Data: <a href="https://fred.stlouisfed.org" target="_blank">FRED</a> Â· <a href="https://www.forexfactory.com" target="_blank">Forex Factory</a> Â· <a href="https://rateprobability.com" target="_blank">rateprobability.com</a></span>
-  <span>Generated: {now_str}</span>
-  <span>Portfolio: {len(PORTFOLIO)} bots Â· {len(ALL_PAIRS)} pairs</span>
-</footer>
+<div class="footer">
+  Macro Intel · Data: FRED · Forex Factory · rateprobability.com · Generated: {now_str} · Portfolio: {len(PORTFOLIO)} bots · {len(ALL_PAIRS)} pairs
+</div>
 
+<script>
+function toggleDetail(card) {{
+  const detail = card.querySelector('.event-detail');
+  if (!detail) return;
+  const isOpen = detail.classList.contains('open');
+  document.querySelectorAll('.event-detail.open').forEach(d => d.classList.remove('open'));
+  document.querySelectorAll('.event-card.expanded').forEach(c => c.classList.remove('expanded'));
+  if (!isOpen) {{ detail.classList.add('open'); card.classList.add('expanded'); }}
+}}
+</script>
 </body>
 </html>"""
-    return html
 
+    return html
 
 def generate_sparkline(history, css_class="spark-flat"):
     if not history or len(history) < 2:
@@ -1410,12 +1481,12 @@ def generate_sparkline(history, css_class="spark-flat"):
     )
 
 
-# â”€â”€ Main â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Main ───────────────────────────────────────────────────────────────────────
 
 def main():
     print(f"[{datetime.now().strftime('%H:%M:%S')}] Starting macro dashboard generation...")
 
-    # 1. Fetch CB rates â€” try FRED candidates, then rateprobability.com as fallback
+    # 1. Fetch CB rates — try FRED candidates, then rateprobability.com as fallback
     print("  Fetching central bank rates from FRED...")
     cb_rates = {}
     rp_slugs = {"FED": "fed", "ECB": "ecb", "BOE": "boe",
@@ -1423,20 +1494,20 @@ def main():
     for cb, info in FRED_SERIES.items():
         result = None
         for sid in info["ids"]:
-            print(f"    â†’ {cb} trying {sid}")
+            print(f"    → {cb} trying {sid}")
             result = fetch_fred_series(sid)
             if result:
-                print(f"    â†’ âœ“ {cb} loaded from {sid}: {result['current']}%")
+                print(f"    → ✓ {cb} loaded from {sid}: {result['current']}%")
                 break
         if not result:
             # Fallback: pull current rate from rateprobability.com
             slug = rp_slugs.get(cb)
             if slug:
-                print(f"    â†’ {cb} FRED failed â€” trying rateprobability.com...")
+                print(f"    → {cb} FRED failed — trying rateprobability.com...")
                 rp = fetch_rateprobability(slug)
                 result = _rp_to_cb_rate(rp)
                 if result:
-                    print(f"    â†’ âœ“ {cb} loaded from rateprobability.com: {result['current']}%")
+                    print(f"    → ✓ {cb} loaded from rateprobability.com: {result['current']}%")
         cb_rates[cb] = result
     loaded = sum(1 for v in cb_rates.values() if v)
     print(f"  Loaded {loaded}/{len(FRED_SERIES)} CB rates")
@@ -1465,7 +1536,7 @@ def main():
     with open(out_path, "w", encoding="utf-8") as f:
         f.write(html)
 
-    print(f"  âœ“ Dashboard written to {out_path}")
+    print(f"  ✓ Dashboard written to {out_path}")
     print(f"[{datetime.now().strftime('%H:%M:%S')}] Done.")
 
 if __name__ == "__main__":
